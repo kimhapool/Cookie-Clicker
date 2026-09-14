@@ -64,9 +64,9 @@ function Cookie({
     </View>
   );
 }
-function Stat({ a, b }: { a: string; b: string }) {
+function Stat({ a, b, compact = false }: { a: string; b: string; compact?: boolean }) {
   return (
-    <View style={s0.stat}>
+    <View style={[s0.stat, compact && s0.statCompact]}>
       <Text style={s0.statA}>{a}</Text>
       <Text style={s0.statB}>{b}</Text>
     </View>
@@ -83,6 +83,8 @@ function Side({ e, t }: { e: string; t: string }) {
 export default function App() {
   const [n, setN] = useState(3086847416);
   const [tab, setTab] = useState(0);
+  const { width } = useWindowDimensions();
+  const phone = width < 500;
   const tabs = [
     "🏠\n홈",
     "🎰\n뽑기",
@@ -95,27 +97,27 @@ export default function App() {
   return (
     <SafeAreaView style={s0.safe}>
       <StatusBar style="dark" />
-      <View style={s0.head}>
-        <View style={s0.avatar}>
+      <View style={[s0.head, phone && s0.headPhone]}>
+        <View style={[s0.avatar, phone && s0.avatarPhone]}>
           <Cookie small />
         </View>
-        <View style={s0.res}>
-          <Text style={s0.resT}>🍪 {n.toLocaleString("ko-KR")}</Text>
+        <View style={[s0.res, phone && s0.resPhone]}>
+          <Text numberOfLines={1} style={[s0.resT, phone && s0.resTPhone]}>🍪 {n.toLocaleString("ko-KR")}</Text>
         </View>
-        <View style={s0.res}>
-          <Text style={s0.resT}>🎟️ 148</Text>
+        <View style={[s0.res, phone && s0.resPhone]}>
+          <Text numberOfLines={1} style={[s0.resT, phone && s0.resTPhone]}>🎟️ 148</Text>
         </View>
-        <View style={s0.res}>
-          <Text style={s0.resT}>💎 0</Text>
+        <View style={[s0.res, phone && s0.resPhone]}>
+          <Text numberOfLines={1} style={[s0.resT, phone && s0.resTPhone]}>💎 0</Text>
         </View>
-        <View style={[s0.res, s0.cps]}>
-          <Text style={s0.resT}>⚡ CPS 547,000/초</Text>
+        <View style={[s0.res, s0.cps, phone && s0.resPhone]}>
+          <Text numberOfLines={1} style={[s0.resT, phone && s0.resTPhone]}>⚡ CPS 547K</Text>
         </View>
-        <View style={s0.setting}>
+        <View style={[s0.setting, phone && s0.settingPhone]}>
           <Text>⚙️</Text>
         </View>
       </View>
-      <View style={s0.body}>
+      <View style={[s0.body, phone && s0.bodyPhone]}>
         <View style={s0.off}>
           <View>
             <Text style={s0.offTitle}>오프라인 보상</Text>
@@ -144,9 +146,9 @@ export default function App() {
               <Text style={s0.tap}>쿠키를 눌러 굽기</Text>
             </View>
             <View style={s0.right}>
-              <Stat a="뽑기 레벨" b="Lv.11" />
-              <Stat a="다음 부스트" b="없음" />
-              <Stat a="버프" b="대기" />
+              <Stat compact a="뽑기 레벨" b="Lv.11" />
+              <Stat compact a="다음 부스트" b="없음" />
+              <Stat compact a="버프" b="대기" />
             </View>
           </View>
           <View style={s0.promo}>
@@ -185,6 +187,7 @@ const s0 = StyleSheet.create({
     borderBottomWidth: 5,
     borderColor: "#d69d2b",
   },
+  headPhone: { height: 92, gap: 5, paddingHorizontal: 7 },
   avatar: {
     width: 70,
     height: 70,
@@ -195,6 +198,7 @@ const s0 = StyleSheet.create({
     borderWidth: 4,
     borderColor: "#b10b39",
   },
+  avatarPhone: { width: 54, height: 54, borderRadius: 27 },
   res: {
     height: 60,
     minWidth: 95,
@@ -206,8 +210,10 @@ const s0 = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  resPhone: { minWidth: 0, height: 52, borderRadius: 11 },
   cps: { flex: 2.2 },
   resT: { fontSize: 16, fontWeight: "900", color: INK },
+  resTPhone: { fontSize: 10 },
   setting: {
     width: 57,
     height: 70,
@@ -218,7 +224,9 @@ const s0 = StyleSheet.create({
     borderWidth: 2,
     borderColor: "#b46a5f",
   },
+  settingPhone: { width: 40, height: 52, borderRadius: 11 },
   body: { flex: 1, padding: 22, gap: 13 },
+  bodyPhone: { padding: 14, gap: 10 },
   off: {
     height: 118,
     borderRadius: 26,
@@ -268,6 +276,7 @@ const s0 = StyleSheet.create({
   },
   statA: { fontSize: 14, fontWeight: "800", color: "#85888e" },
   statB: { fontSize: 21, fontWeight: "900", color: "#27384f" },
+  statCompact: { flex: 0, height: 54, minWidth: 0, borderRadius: 18 },
   work: {
     height: 28,
     textAlign: "center",
