@@ -1,0 +1,28 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { create } from 'zustand';
+import { createJSONStorage, persist } from 'zustand/middleware';
+import { BUILDINGS } from '../data/buildings';
+import { OVENS, type Oven } from '../data/ovens';
+
+type OwnedOven={ovenId:string;level:number;fusion:number;trait:'없음'|'샤이니'|'반전'|'글리치'};
+type Game={
+ cookies:number; totalCookies:number; taps:number; chocoChips:number; premiumChips:number; dictionaries:number; diaries:number;
+ rebirths:number; buildings:Record<string,number>; ovens:OwnedOven[]; equippedOvenId:string; lastSavedAt:number;
+ click():number; buyBuilding(id:string):boolean; sellBuilding(id:string):boolean; exchangeCookies(amount:number):boolean; rebirth():boolean; draw(premium?:boolean):Oven|null; tick(seconds:number):void;
+};
+const initialBuildings=Object.fromEntries(BUILDINGS.map(b=>[b.id,0]));
+const initialOvens:OwnedOven[]=OVENS.map((oven,i)=>({ovenId:oven.id,level:i===0?1:0,fusion:0,trait:'없음'}));
+const equipped=(state:Pick<Game,'equippedOvenId'|'ovens'>)=>OVENS.find(o=>o.id===state.equippedOvenId)??OVENS[0];
+const cps=(state:Pick<Game,'buildings'|'equippedOvenId'|'ovens'|'rebirths'>)=>BUILDINGS.reduce((n,b)=>n+(state.buildings[b.id]||0)*b.baseCps,0)*equipped(state).cps*Math.pow(1.5,state.rebirths);
+const buildingCost=(id:string,count:number)=>{const b=BUILDINGS.find(x=>x.id===id)!;return Math.floor(b.baseCost*Math.pow(1.15,count));};
+export const useGameStore=create<Game>()(persist((set,get)=>({
+ cookies:0,totalCookies:0,taps:0,chocoChips:10,premiumChips:0,dictionaries:0,diaries:0,rebirths:0,buildings:initialBuildings,ovens:initialOvens,equippedOvenId:OVENS[0].id,lastSavedAt:Date.now(),
+ click:()=>{const s=get();const gain=Math.max(1,Math.floor(equipped(s).click*Math.pow(1.5,s.rebirths)));set({cookies:s.cookies+gain,totalCookies:s.totalCookies+gain,taps:s.taps+1});return gain;},
+ buyBuilding:(id)=>{const s=get(),count=s.buildings[id]||0,cost=buildingCost(id,count);if(s.cookies<cost)return false;set({cookies:s.cookies-cost,buildings:{...s.buildings,[id]:count+1}});return true;},
+ sellBuilding:(id)=>{const s=get(),count=s.buildings[id]||0;if(!count)return false;const refund=Math.floor(buildingCost(id,count-1)*.8);set({cookies:s.cookies+refund,buildings:{...s.buildings,[id]:count-1}});return true;},
+ exchangeCookies:(amount)=>{const s=get(),use=Math.min(s.cookies,amount);const chips=Math.floor(use/100000);if(!chips)return false;set({cookies:s.cookies-chips*100000,chocoChips:s.chocoChips+chips});return true;},
+ rebirth:()=>{const s=get(),need=100000*Math.pow(5,s.rebirths);if(s.cookies<need)return false;set({cookies:0,rebirths:s.rebirths+1});return true;},
+ draw:(premium=false)=>{const s=get();if(premium?s.premiumChips<1:s.chocoChips<1)return null;const roll=Math.random();const oven=roll<.000329?OVENS.at(-1)!:OVENS[Math.floor(Math.random()*(OVENS.length-1))];const found=s.ovens.find(x=>x.ovenId===oven.id)!;set({[premium?'premiumChips':'chocoChips']:(premium?s.premiumChips:s.chocoChips)-1,ovens:s.ovens.map(x=>x===found?{...x,level:x.level+1}:x)} as Partial<Game>);return oven;},
+ tick:(seconds)=>{const s=get(),gain=Math.floor(cps(s)*seconds);if(gain)set({cookies:s.cookies+gain,totalCookies:s.totalCookies+gain,lastSavedAt:Date.now()});}
+}),{name:'cookie-clicker-game-v1',storage:createJSONStorage(()=>AsyncStorage),partialize:s=>({...s,click:undefined,buyBuilding:undefined,sellBuilding:undefined,exchangeCookies:undefined,rebirth:undefined,draw:undefined,tick:undefined})}));
+export const getCps=cps;
