@@ -129,6 +129,7 @@ export default function App() {
   const [resetStage, setResetStage] = useState(0);
   const [lastGain, setLastGain] = useState(0);
   const [achievementToast, setAchievementToast] = useState<string | null>(null);
+  const [clock, setClock] = useState(Date.now());
   const [tapStage, setTapStage] = useState(0);
   const tapTimes = useRef<number[]>([]);
   const shownAchievements = useRef(new Set<string>());
@@ -156,6 +157,10 @@ export default function App() {
     const timer = setInterval(() => game.tick(1), 1000);
     return () => clearInterval(timer);
   }, [game.tick]);
+  useEffect(() => {
+    const timer = setInterval(() => setClock(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, []);
   useEffect(() => {
     game.checkOffline();
   }, [game.checkOffline]);
@@ -311,7 +316,7 @@ export default function App() {
             <Text style={s0.offTitle}>{text.offline}</Text>
             <Text style={s0.offSub}>
               {game.pendingOffline
-                ? `돌아온 보상 · +${game.pendingOffline.toLocaleString("ko-KR")}`
+                ? `${Math.floor(game.offlineSeconds / 60)}분 ${game.offlineSeconds % 60}초 · +${game.pendingOffline.toLocaleString("ko-KR")}`
                 : "오프라인 보상을 준비 중입니다"}
             </Text>
           </View>
@@ -356,7 +361,9 @@ export default function App() {
             >
               <Text style={s0.boostTitle}>🔥 더블 포션</Text>
               <Text style={s0.boostSub}>
-                {game.boostUntil > Date.now() ? "적용 중" : "2배 · 5,000 쿠키"}
+                {game.boostUntil > clock
+                  ? `${Math.ceil((game.boostUntil - clock) / 1000)}초`
+                  : "2배 · 5,000 쿠키"}
               </Text>
             </Pressable>
             <Pressable
@@ -370,7 +377,9 @@ export default function App() {
             >
               <Text style={s0.boostTitle}>🌈 피버 타임</Text>
               <Text style={s0.boostSub}>
-                {game.boostUntil > Date.now() ? "적용 중" : "4배 · 25,000 쿠키"}
+                {game.boostUntil > clock
+                  ? `${Math.ceil((game.boostUntil - clock) / 1000)}초`
+                  : "4배 · 25,000 쿠키"}
               </Text>
             </Pressable>
           </View>
@@ -505,7 +514,11 @@ export default function App() {
                 compact
                 tight={short}
                 a="버프"
-                b={game.boostUntil > Date.now() ? "2배 적용" : "대기"}
+                b={
+                  game.boostUntil > clock
+                    ? `${game.boostMultiplier}배 ${Math.ceil((game.boostUntil - clock) / 1000)}초`
+                    : "대기"
+                }
               />
             </View>
           </View>
