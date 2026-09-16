@@ -1,4 +1,5 @@
 import { StatusBar } from "expo-status-bar";
+import * as Haptics from "expo-haptics";
 import {
   Image,
   Pressable,
@@ -8,7 +9,8 @@ import {
   View,
   useWindowDimensions,
 } from "react-native";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { getCps, useGameStore } from "./src/store/useGameStore";
 
 const WINE = "#850019",
   PAPER = "#f8eed7",
@@ -81,10 +83,20 @@ function Side({ e, t }: { e: string; t: string }) {
   );
 }
 export default function App() {
-  const [n, setN] = useState(3086847416);
   const [tab, setTab] = useState(0);
   const { width } = useWindowDimensions();
   const phone = width < 500;
+  const game = useGameStore();
+  const n = game.cookies;
+  const cps = getCps(game);
+  useEffect(() => {
+    const timer = setInterval(() => game.tick(1), 1000);
+    return () => clearInterval(timer);
+  }, [game.tick]);
+  const tapCookie = () => {
+    game.click();
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined);
+  };
   const tabs = [
     "🏠\n홈",
     "🎰\n뽑기",
@@ -111,7 +123,7 @@ export default function App() {
           <Text numberOfLines={1} style={[s0.resT, phone && s0.resTPhone]}>💎 0</Text>
         </View>
         <View style={[s0.res, s0.cps, phone && s0.resPhone]}>
-          <Text numberOfLines={1} style={[s0.resT, phone && s0.resTPhone]}>⚡ CPS 547K</Text>
+          <Text numberOfLines={1} style={[s0.resT, phone && s0.resTPhone]}>⚡ CPS {Math.floor(cps).toLocaleString("ko-KR")}</Text>
         </View>
         <View style={[s0.setting, phone && s0.settingPhone]}>
           <Text>⚙️</Text>
@@ -142,7 +154,7 @@ export default function App() {
             </View>
             <View style={s0.cookieZone}>
               <View style={s0.shadow} />
-              <Cookie onPress={() => setN((v) => v + 1820)} />
+              <Cookie onPress={tapCookie} />
               <Text style={s0.tap}>쿠키를 눌러 굽기</Text>
             </View>
             <View style={s0.right}>
