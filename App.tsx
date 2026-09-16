@@ -154,6 +154,18 @@ export default function App() {
   const excitingMusicPlayer = useAudioPlayer(require("./assets/audio/NS.wav"));
   const n = game.cookies;
   const cps = getCps(game);
+  const totalBuildings = Object.values(game.buildings).reduce(
+    (total, count) => total + count,
+    0,
+  );
+  const tutorialReady =
+    game.tutorialStep === 0
+      ? game.taps >= 1
+      : game.tutorialStep === 1
+        ? totalBuildings >= 15
+        : game.tutorialStep === 2
+          ? game.totalDraws >= 1
+          : true;
   useEffect(() => {
     const timer = setInterval(() => game.tick(1), 1000);
     return () => clearInterval(timer);
@@ -582,6 +594,8 @@ export default function App() {
                   ["moon", "달빛 배송", "쿠키 2,500개"],
                 ].map(([id, title, reward]) => {
                   const claimed = game.claimedMail.includes(id);
+                  const unavailable =
+                    id === "tutorial" && !game.tutorialComplete;
                   return (
                     <View key={id} style={s0.mailRow}>
                       <View>
@@ -589,12 +603,19 @@ export default function App() {
                         <Text style={s0.mailSub}>{reward}</Text>
                       </View>
                       <Pressable
-                        disabled={claimed}
+                        disabled={claimed || unavailable}
                         onPress={() => game.claimMail(id)}
-                        style={[s0.mailButton, claimed && s0.claimDisabled]}
+                        style={[
+                          s0.mailButton,
+                          (claimed || unavailable) && s0.claimDisabled,
+                        ]}
                       >
                         <Text style={s0.languageText}>
-                          {claimed ? "받음" : "받기"}
+                          {claimed
+                            ? "받음"
+                            : unavailable
+                              ? "안내 완료 후"
+                              : "받기"}
                         </Text>
                       </Pressable>
                     </View>
@@ -826,19 +847,28 @@ export default function App() {
               {
                 [
                   "가운데 쿠키를 눌러 첫 쿠키를 구워보세요.",
-                  "쿠키가 쌓이면 자동화 오븐을 구매하실 수 있습니다.",
                   "자동화 오븐을 15개까지 늘려보세요.",
-                  "초코칩으로 오븐 뽑기에 도전해 보세요.",
+                  "초코칩으로 첫 오븐 뽑기에 도전해 보세요.",
+                  "우편함에서 안내 완료 보상을 확인해 보세요.",
                   "안내를 완료했습니다. 우편함에서 초코칩 10개를 받아가세요.",
                 ][Math.min(game.tutorialStep, 4)]
               }
             </Text>
             <Pressable
+              disabled={!tutorialReady}
               onPress={() => game.advanceTutorial()}
-              style={s0.closeButton}
+              style={[s0.closeButton, !tutorialReady && s0.claimDisabled]}
             >
               <Text style={s0.closeText}>
-                {game.tutorialStep >= 4 ? "완료" : "다음"}
+                {tutorialReady
+                  ? game.tutorialStep >= 4
+                    ? "완료"
+                    : "다음"
+                  : game.tutorialStep === 0
+                    ? "쿠키를 눌러주세요"
+                    : game.tutorialStep === 1
+                      ? `${totalBuildings}/15`
+                      : "뽑기를 진행해주세요"}
               </Text>
             </Pressable>
           </View>

@@ -456,6 +456,7 @@ export const useGameStore = create<Game>()(
       claimMail: (id) => {
         const state = get();
         if (state.claimedMail.includes(id)) return false;
+        if (id === "tutorial" && !state.tutorialComplete) return false;
         const reward =
           id === "tutorial"
             ? 0
