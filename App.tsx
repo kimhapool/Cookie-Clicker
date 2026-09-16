@@ -144,7 +144,8 @@ export default function App() {
   const drumPlayer = useAudioPlayer(require("./assets/audio/MV.wav"));
   const bitePlayer = useAudioPlayer(require("./assets/audio/om.wav"));
   const crumblePlayer = useAudioPlayer(require("./assets/audio/wb.wav"));
-  const musicPlayer = useAudioPlayer(require("./assets/audio/eM.wav"));
+  const calmMusicPlayer = useAudioPlayer(require("./assets/audio/eM.wav"));
+  const excitingMusicPlayer = useAudioPlayer(require("./assets/audio/NS.wav"));
   const n = game.cookies;
   const cps = getCps(game);
   useEffect(() => {
@@ -158,11 +159,29 @@ export default function App() {
     game.ensureAllOvens();
   }, [game.ensureAllOvens]);
   useEffect(() => {
-    musicPlayer.loop = true;
-    musicPlayer.volume = 0.16;
-    if (game.settings.music) musicPlayer.play();
-    else musicPlayer.pause();
-  }, [game.settings.music, musicPlayer]);
+    const calm = game.settings.musicStyle !== "exciting";
+    calmMusicPlayer.loop = true;
+    excitingMusicPlayer.loop = true;
+    calmMusicPlayer.volume = 0.16;
+    excitingMusicPlayer.volume = 0.15;
+    if (game.settings.music) {
+      if (calm) {
+        excitingMusicPlayer.pause();
+        calmMusicPlayer.play();
+      } else {
+        calmMusicPlayer.pause();
+        excitingMusicPlayer.play();
+      }
+    } else {
+      calmMusicPlayer.pause();
+      excitingMusicPlayer.pause();
+    }
+  }, [
+    game.settings.music,
+    game.settings.musicStyle,
+    calmMusicPlayer,
+    excitingMusicPlayer,
+  ]);
   const tapCookie = () => {
     const gain = game.click();
     const now = Date.now();
@@ -627,6 +646,26 @@ export default function App() {
                 value={game.settings.music}
                 onValueChange={(music) => game.updateSettings({ music })}
               />
+            </View>
+            <View style={s0.settingRow}>
+              <Text style={s0.settingLabel}>음악 분위기</Text>
+              <Pressable
+                onPress={() =>
+                  game.updateSettings({
+                    musicStyle:
+                      game.settings.musicStyle === "exciting"
+                        ? "calm"
+                        : "exciting",
+                  })
+                }
+                style={s0.languageButton}
+              >
+                <Text style={s0.languageText}>
+                  {game.settings.musicStyle === "exciting"
+                    ? "흥겨움"
+                    : "차분함"}
+                </Text>
+              </Pressable>
             </View>
             <View style={s0.settingRow}>
               <Text style={s0.settingLabel}>진동</Text>

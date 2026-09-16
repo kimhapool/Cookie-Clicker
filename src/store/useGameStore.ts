@@ -17,6 +17,7 @@ export type OwnedOven = {
 type Settings = {
   sound: boolean;
   music: boolean;
+  musicStyle: "calm" | "exciting";
   vibration: boolean;
   language: "ko" | "en" | "ja" | "zh" | "ar" | "de" | "ru";
   tapSound: "pop" | "drum" | "bite" | "crumble";
@@ -94,6 +95,7 @@ const allOvens = (): OwnedOven[] =>
 const defaultSettings: Settings = {
   sound: true,
   music: true,
+  musicStyle: "calm",
   vibration: true,
   language: "ko",
   tapSound: "bite",
