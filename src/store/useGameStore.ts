@@ -146,6 +146,8 @@ const traitMultiplier = (trait: Trait) =>
 const equippedTrait = (state: Pick<Game, "ovens" | "equippedOvenId">) =>
   state.ovens.find((oven) => oven.ovenId === state.equippedOvenId)?.trait ??
   "없음";
+const equippedFusion = (state: Pick<Game, "ovens" | "equippedOvenId">) =>
+  state.ovens.find((oven) => oven.ovenId === state.equippedOvenId)?.fusion ?? 0;
 const activeBoost = (state: Pick<Game, "boostUntil" | "boostMultiplier">) =>
   state.boostUntil > Date.now() ? state.boostMultiplier : 1;
 export const getClickGain = (
@@ -164,6 +166,7 @@ export const getClickGain = (
     Math.floor(
       equipped(state).click *
         traitMultiplier(equippedTrait(state)) *
+        Math.pow(1.25, equippedFusion(state)) *
         Math.pow(1.5, state.rebirths) *
         activeBoost(state) *
         Math.pow(1.2, state.upgrades.click) *
@@ -189,6 +192,7 @@ export const getCps = (
   ) *
   equipped(state).cps *
   traitMultiplier(equippedTrait(state)) *
+  Math.pow(1.25, equippedFusion(state)) *
   Math.pow(1.5, state.rebirths) *
   activeBoost(state) *
   Math.pow(1.25, state.upgrades.cps) *
@@ -221,14 +225,15 @@ const premiumWeight: Record<Rarity, number> = {
   Secret: 0.329,
 };
 const highRarity: Rarity[] = ["Mythic", "Eternal", "Celestial", "Secret"];
-const randomOven = (premium: boolean, boost: DrawBoost) => {
+const randomOven = (premium: boolean, boost: DrawBoost, level: number) => {
   const weights = premium ? premiumWeight : rarityWeight;
   const multiplier = boost === "diary" ? 50 : boost === "dictionary" ? 15 : 1;
+  const levelBonus = premium ? 1 : 1 + Math.max(0, level - 1) * 0.035;
   const pool = OVENS.map((oven) => ({
     oven,
     weight:
       weights[oven.rarity] *
-      (highRarity.includes(oven.rarity) ? multiplier : 1),
+      (highRarity.includes(oven.rarity) ? multiplier * levelBonus : 1),
   }));
   const total = pool.reduce((sum, item) => sum + item.weight, 0);
   let roll = Math.random() * total;
@@ -346,7 +351,7 @@ export const useGameStore = create<Game>()(
         const state = get();
         if (premium ? state.premiumChips < 1 : state.chocoChips < 1)
           return null;
-        const oven = randomOven(premium, state.nextDrawBoost);
+        const oven = randomOven(premium, state.nextDrawBoost, state.drawLevel);
         const owned = state.ovens.find((item) => item.ovenId === oven.id)!;
         const draws = state.totalDraws + 1;
         set({
