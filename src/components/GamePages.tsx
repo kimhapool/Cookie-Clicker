@@ -449,6 +449,14 @@ export function AchievementsPage() {
     ["달콤한 전환", game.chocoChips >= 10, "초코칩 10개를 모았습니다"],
     ["새로운 생", game.rebirths >= 1, "첫 환생을 완료했습니다"],
   ];
+  const secretEntries = [
+    ["달빛 제빵사", game.totalDraws >= 50, "숨겨진 뽑기 기록을 달성했습니다"],
+    [
+      "무한의 향",
+      game.ovens.find((oven) => oven.ovenId === "oven-16")?.level! >= 2,
+      "Secret 오븐을 다시 만났습니다",
+    ],
+  ];
   return (
     <Page title="🏆 도전과제">
       {entries.map(([title, done, description]) => (
@@ -459,6 +467,14 @@ export function AchievementsPage() {
           <Text style={s.info}>{description}</Text>
         </View>
       ))}
+      {secretEntries
+        .filter(([, done]) => done)
+        .map(([title, , description]) => (
+          <View key={String(title)} style={[s.card, s.done]}>
+            <Text style={s.cardTitle}>🌙 {title}</Text>
+            <Text style={s.info}>{description}</Text>
+          </View>
+        ))}
     </Page>
   );
 }
