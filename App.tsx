@@ -840,8 +840,8 @@ export default function App() {
         </View>
       </Modal>
       <Modal transparent animationType="fade" visible={!game.tutorialComplete}>
-        <View style={s0.tutorialShade}>
-          <View style={s0.tutorialCard}>
+        <View pointerEvents="box-none" style={s0.tutorialShade}>
+          <View pointerEvents="auto" style={s0.tutorialCard}>
             <Text style={s0.modalTitle}>🍪 베이커리 안내</Text>
             <Text style={s0.tutorialText}>
               {
