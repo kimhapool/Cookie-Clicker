@@ -32,6 +32,7 @@ type Game = {
   equippedOvenId: string;
   lastSavedAt: number;
   pendingOffline: number;
+  boostUntil: number;
   click(): number;
   buyBuilding(id: string): boolean;
   sellBuilding(id: string): boolean;
@@ -41,6 +42,7 @@ type Game = {
   equipOven(id: string): boolean;
   updateSettings(value: Partial<Settings>): void;
   claimMail(id: string): boolean;
+  activateBoost(): boolean;
   checkOffline(): void;
   claimOffline(): number;
   tick(seconds: number): void;
@@ -55,11 +57,15 @@ const initialOvens: OwnedOven[] = OVENS.map((oven, i) => ({
 const equipped = (state: Pick<Game, "equippedOvenId" | "ovens">) =>
   OVENS.find((o) => o.id === state.equippedOvenId) ?? OVENS[0];
 const cps = (
-  state: Pick<Game, "buildings" | "equippedOvenId" | "ovens" | "rebirths">,
+  state: Pick<
+    Game,
+    "buildings" | "equippedOvenId" | "ovens" | "rebirths" | "boostUntil"
+  >,
 ) =>
   BUILDINGS.reduce((n, b) => n + (state.buildings[b.id] || 0) * b.baseCps, 0) *
   equipped(state).cps *
-  Math.pow(1.5, state.rebirths);
+  Math.pow(1.5, state.rebirths) *
+  (state.boostUntil > Date.now() ? 2 : 1);
 const buildingCost = (id: string, count: number) => {
   const b = BUILDINGS.find((x) => x.id === id)!;
   return Math.floor(b.baseCost * Math.pow(1.15, count));
@@ -82,11 +88,16 @@ export const useGameStore = create<Game>()(
       equippedOvenId: OVENS[0].id,
       lastSavedAt: Date.now(),
       pendingOffline: 0,
+      boostUntil: 0,
       click: () => {
         const s = get();
         const gain = Math.max(
           1,
-          Math.floor(equipped(s).click * Math.pow(1.5, s.rebirths)),
+          Math.floor(
+            equipped(s).click *
+              Math.pow(1.5, s.rebirths) *
+              (s.boostUntil > Date.now() ? 2 : 1),
+          ),
         );
         set({
           cookies: s.cookies + gain,
@@ -173,6 +184,15 @@ export const useGameStore = create<Game>()(
         });
         return true;
       },
+      activateBoost: () => {
+        const s = get();
+        if (s.chocoChips < 3) return false;
+        set({
+          chocoChips: s.chocoChips - 3,
+          boostUntil: Date.now() + 5 * 60 * 1000,
+        });
+        return true;
+      },
       checkOffline: () => {
         const s = get();
         const seconds = Math.min(
@@ -218,6 +238,7 @@ export const useGameStore = create<Game>()(
         equipOven: undefined,
         updateSettings: undefined,
         claimMail: undefined,
+        activateBoost: undefined,
         checkOffline: undefined,
         claimOffline: undefined,
         tick: undefined,

@@ -225,7 +225,11 @@ export default function App() {
                 b={`${game.ovens.filter((o) => o.level > 0).length}종`}
               />
               <Stat compact a="초코칩" b={`${game.chocoChips}개`} />
-              <Stat compact a="버프" b="대기" />
+              <Stat
+                compact
+                a="버프"
+                b={game.boostUntil > Date.now() ? "2배 적용" : "대기"}
+              />
             </View>
           </View>
           <Pressable onPress={() => setTab(1)} style={s0.promo}>

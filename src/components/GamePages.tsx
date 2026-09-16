@@ -250,10 +250,17 @@ export function UpgradesPage() {
         />
       </View>
       <View style={s.card}>
-        <Text style={s.cardTitle}>🍪 클릭 강화</Text>
+        <Text style={s.cardTitle}>🍪 달콤한 부스트</Text>
         <Text style={s.info}>
-          장착한 오븐과 환생 보너스가 클릭 보상에 적용됩니다.
+          {game.boostUntil > Date.now()
+            ? "2배 부스트가 적용 중입니다."
+            : "초코칩 3개로 5분 동안 클릭과 자동화 생산량이 2배가 됩니다."}
         </Text>
+        <Button
+          title="초코칩 3개로 부스트"
+          disabled={game.chocoChips < 3 || game.boostUntil > Date.now()}
+          onPress={() => game.activateBoost()}
+        />
       </View>
       <View style={s.card}>
         <Text style={s.cardTitle}>🏭 생산 강화</Text>
