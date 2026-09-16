@@ -7,6 +7,7 @@ import {
   View,
 } from "react-native";
 import { useState } from "react";
+import * as Haptics from "expo-haptics";
 import { BUILDINGS } from "../data/buildings";
 import { OVENS, RARITY_COLORS } from "../data/ovens";
 import { useGameStore } from "../store/useGameStore";
@@ -50,79 +51,156 @@ function Page({
 
 export function DrawPage() {
   const game = useGameStore();
-  const [resultId, setResultId] = useState<string | null>(null);
+  const [mode, setMode] = useState<"basic" | "premium" | "trait">("basic");
+  const [results, setResults] = useState<string[]>([]);
+  const [showOdds, setShowOdds] = useState(false);
   const draw = (premium = false, count = 1) => {
-    let result = null;
+    const drawnIds: string[] = [];
     for (let i = 0; i < count; i += 1) {
       const drawn = game.draw(premium);
       if (!drawn) break;
-      result = drawn;
+      drawnIds.push(drawn.id);
     }
-    if (result) setResultId(result.id);
+    if (drawnIds.length) {
+      setResults(drawnIds);
+      if (game.settings.vibration)
+        Haptics.notificationAsync(
+          Haptics.NotificationFeedbackType.Success,
+        ).catch(() => undefined);
+    }
   };
-  const result = resultId ? OVENS.find((oven) => oven.id === resultId) : null;
+  const grouped = results.reduce<Record<string, number>>(
+    (acc, id) => ({ ...acc, [id]: (acc[id] ?? 0) + 1 }),
+    {},
+  );
+  const selected = game.ovens.find(
+    (oven) => oven.ovenId === game.equippedOvenId,
+  )!;
   return (
     <Page title="🎰 오븐 뽑기">
       <View style={s.hero}>
-        <Text style={s.heroText}>모든 등급의 오븐이 뽑기에서 등장합니다</Text>
         <Text style={s.balance}>
           🍫 {fmt(game.chocoChips)} · 💎 {fmt(game.premiumChips)}
         </Text>
+        <Text style={s.info}>
+          뽑기 레벨 Lv.{game.drawLevel} · 다음 보정{" "}
+          {game.nextDrawBoost === "none"
+            ? "없음"
+            : game.nextDrawBoost === "dictionary"
+              ? "15배"
+              : "50배"}
+        </Text>
       </View>
-      <Text style={s.section}>기본 초코칩 뽑기</Text>
       <View style={s.row}>
-        <Button title="1회 뽑기" onPress={() => draw()} />
-        <Button title="10회 뽑기" onPress={() => draw(false, 10)} />
+        <Button title="🍫 기본" onPress={() => setMode("basic")} />
+        <Button title="💎 프리미엄" onPress={() => setMode("premium")} />
+        <Button title="✨ 특성" onPress={() => setMode("trait")} />
       </View>
-      <Text style={s.section}>프리미엄 초코칩 뽑기</Text>
-      <View style={s.row}>
-        <Button title="1회 뽑기" onPress={() => draw(true)} />
-        <Button title="10회 뽑기" onPress={() => draw(true, 10)} />
-      </View>
-      <Text style={s.section}>등장 오븐</Text>
-      {OVENS.map((oven) => (
-        <View
-          key={oven.id}
-          style={[s.oven, { borderColor: RARITY_COLORS[oven.rarity] }]}
-        >
-          <Text style={s.ovenName}>{oven.name}</Text>
-          <Text style={[s.rarity, { color: RARITY_COLORS[oven.rarity] }]}>
-            {oven.rarity === "Secret" ? "???" : oven.rarity}
+      {mode !== "trait" ? (
+        <>
+          <Text style={s.section}>
+            {mode === "basic" ? "초코칩 뽑기" : "프리미엄 초코칩 뽑기"}
           </Text>
-        </View>
-      ))}
+          <View style={s.row}>
+            <Button title="1회 뽑기" onPress={() => draw(mode === "premium")} />
+            <Button
+              title="10회 뽑기"
+              onPress={() => draw(mode === "premium", 10)}
+            />
+            <Button
+              title="전부 뽑기"
+              onPress={() =>
+                draw(
+                  mode === "premium",
+                  mode === "premium" ? game.premiumChips : game.chocoChips,
+                )
+              }
+            />
+          </View>
+          <View style={s.row}>
+            <Button title="확률 보기" onPress={() => setShowOdds(true)} />
+            {game.dictionaries > 0 && (
+              <Button
+                title="사전 사용"
+                onPress={() => game.prepareDrawBoost("dictionary")}
+              />
+            )}
+            {game.diaries > 0 && (
+              <Button
+                title="일기 사용"
+                onPress={() => game.prepareDrawBoost("diary")}
+              />
+            )}
+          </View>
+        </>
+      ) : (
+        <>
+          <Text style={s.section}>특성 뽑기</Text>
+          <View style={s.card}>
+            <Text style={s.cardTitle}>
+              {OVENS.find((oven) => oven.id === selected.ovenId)?.name}
+            </Text>
+            <Text style={s.info}>
+              현재 특성: {selected.trait} · 코어 결정으로 다음 특성을
+              획득합니다.
+            </Text>
+            <Button
+              title="특성 뽑기"
+              disabled={selected.trait === "글리치"}
+              onPress={() => game.rollTrait(selected.ovenId)}
+            />
+          </View>
+        </>
+      )}
       <Modal
         transparent
         animationType="fade"
-        visible={!!result}
-        onRequestClose={() => setResultId(null)}
+        visible={results.length > 0}
+        onRequestClose={() => setResults([])}
       >
         <View style={s.resultShade}>
-          {result && (
-            <View
-              style={[
-                s.resultCard,
-                { borderColor: RARITY_COLORS[result.rarity] },
-              ]}
-            >
-              <Text style={s.resultSparkle}>✦ ✦ ✦</Text>
-              <Text style={s.resultTitle}>새 오븐 획득!</Text>
-              <Text
-                style={[
-                  s.resultRarity,
-                  { color: RARITY_COLORS[result.rarity] },
-                ]}
-              >
-                {result.rarity}
-              </Text>
-              <Text style={s.resultOven}>🔥</Text>
-              <Text style={s.resultName}>{result.name}</Text>
-              <Text style={s.info}>
-                클릭 x{result.click} · 자동화 x{result.cps}
-              </Text>
-              <Button title="확인" onPress={() => setResultId(null)} />
-            </View>
-          )}
+          <View style={s.resultCard}>
+            <Text style={s.resultSparkle}>✦ ✦ ✦</Text>
+            <Text style={s.resultTitle}>{results.length}회 뽑기 결과</Text>
+            {Object.entries(grouped).map(([id, count]) => {
+              const oven = OVENS.find((item) => item.id === id)!;
+              return (
+                <Text
+                  key={id}
+                  style={[
+                    s.resultRarity,
+                    { color: RARITY_COLORS[oven.rarity] },
+                  ]}
+                >
+                  {oven.name} ×{count} · {oven.rarity}
+                </Text>
+              );
+            })}
+            <Button title="확인" onPress={() => setResults([])} />
+          </View>
+        </View>
+      </Modal>
+      <Modal
+        transparent
+        animationType="slide"
+        visible={showOdds}
+        onRequestClose={() => setShowOdds(false)}
+      >
+        <View style={s.resultShade}>
+          <ScrollView style={s.oddsCard} contentContainerStyle={s.oddsContent}>
+            <Text style={s.resultTitle}>
+              {mode === "premium" ? "프리미엄 확률" : "기본 확률"}
+            </Text>
+            {OVENS.map((oven) => (
+              <View key={oven.id} style={s.oddsRow}>
+                <Text style={s.ovenName}>{oven.name}</Text>
+                <Text style={[s.rarity, { color: RARITY_COLORS[oven.rarity] }]}>
+                  {oven.rarity === "Secret" ? "???" : oven.rarity}
+                </Text>
+              </View>
+            ))}
+            <Button title="닫기" onPress={() => setShowOdds(false)} />
+          </ScrollView>
         </View>
       </Modal>
     </Page>
@@ -189,12 +267,35 @@ export function ExchangePage() {
           />
         </View>
       </View>
+      <View style={s.card}>
+        <Text style={s.cardTitle}>🍫 고급 교환</Text>
+        <Text style={s.info}>초코칩 10,000개 → 프리미엄 초코칩 1개</Text>
+        <Button
+          title="프리미엄 초코칩 교환"
+          onPress={() => game.exchangeChips("premium")}
+        />
+        <Text style={s.info}>초코칩 1,000,000개 → 미래를 담은 사전 1권</Text>
+        <Button
+          title="미래를 담은 사전 교환"
+          onPress={() => game.exchangeChips("dictionary")}
+        />
+        <Text style={s.info}>사전 3권 → 시간 여행자의 일기 1권</Text>
+        <Button
+          title="시간 여행자의 일기 제작"
+          onPress={() => game.exchangeChips("diary")}
+        />
+      </View>
     </Page>
   );
 }
 
 export function InventoryPage() {
   const game = useGameStore();
+  const [descending, setDescending] = useState(false);
+  const rarityRank = (id: string) =>
+    Object.keys(RARITY_COLORS).indexOf(
+      OVENS.find((oven) => oven.id === id)!.rarity,
+    );
   return (
     <Page title="🎒 인벤토리">
       <View style={s.hero}>
@@ -202,10 +303,30 @@ export function InventoryPage() {
         <Text style={s.balance}>
           🍫 {fmt(game.chocoChips)} · 💎 {fmt(game.premiumChips)}
         </Text>
+        <Text style={s.info}>
+          미래를 담은 사전 {game.dictionaries}권 · 시간 여행자의 일기{" "}
+          {game.diaries}권
+        </Text>
+        <Text style={s.info}>
+          오로라 {game.epirus.aurora} · 옵터널 {game.epirus.opternal} · 황혼{" "}
+          {game.epirus.twilight} · 피닉스 {game.epirus.phoenix} · 인피니티{" "}
+          {game.epirus.infinity}
+        </Text>
       </View>
-      <Text style={s.section}>오븐 컬렉션</Text>
+      <View style={s.row}>
+        <Text style={s.section}>오븐 컬렉션</Text>
+        <Button
+          title={descending ? "등급 내림차순" : "등급 오름차순"}
+          onPress={() => setDescending(!descending)}
+        />
+      </View>
       {game.ovens
         .filter((owned) => owned.level > 0)
+        .sort((a, b) =>
+          descending
+            ? rarityRank(b.ovenId) - rarityRank(a.ovenId)
+            : rarityRank(a.ovenId) - rarityRank(b.ovenId),
+        )
         .map((owned) => {
           const oven = OVENS.find(
             (candidate) => candidate.id === owned.ovenId,
@@ -221,8 +342,21 @@ export function InventoryPage() {
                 {oven.name}
               </Text>
               <Text style={s.info}>
-                레벨 {owned.level} · 융합 {owned.fusion} · 클릭 x{oven.click}
+                보유 {owned.level}개 · 융합 {owned.fusion} · 특성 {owned.trait}
               </Text>
+              <View style={s.row}>
+                <Button title="장착" onPress={() => game.equipOven(oven.id)} />
+                <Button
+                  title={`융합 (${owned.fusion + 2}개)`}
+                  disabled={owned.level - 1 < owned.fusion + 2}
+                  onPress={() => game.fuseOven(oven.id)}
+                />
+                <Button
+                  title="분해"
+                  disabled={owned.level < 2}
+                  onPress={() => game.dismantleOven(oven.id)}
+                />
+              </View>
             </Pressable>
           );
         })}
@@ -251,16 +385,7 @@ export function UpgradesPage() {
       </View>
       <View style={s.card}>
         <Text style={s.cardTitle}>🍪 달콤한 부스트</Text>
-        <Text style={s.info}>
-          {game.boostUntil > Date.now()
-            ? "2배 부스트가 적용 중입니다."
-            : "초코칩 3개로 5분 동안 클릭과 자동화 생산량이 2배가 됩니다."}
-        </Text>
-        <Button
-          title="초코칩 3개로 부스트"
-          disabled={game.chocoChips < 3 || game.boostUntil > Date.now()}
-          onPress={() => game.activateBoost()}
-        />
+        <Text style={s.info}>부스트는 홈 화면에서 사용하실 수 있습니다.</Text>
       </View>
       <View style={s.card}>
         <Text style={s.cardTitle}>🏭 생산 강화</Text>
@@ -373,5 +498,21 @@ const s = StyleSheet.create({
     fontSize: 24,
     textAlign: "center",
     fontWeight: "900",
+  },
+  oddsCard: {
+    width: "100%",
+    maxWidth: 480,
+    maxHeight: "82%",
+    backgroundColor: "#fff8e9",
+    borderRadius: 24,
+  },
+  oddsContent: { padding: 20, gap: 10 },
+  oddsRow: {
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    padding: 12,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 8,
   },
 });

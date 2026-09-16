@@ -12,7 +12,8 @@ import {
   useWindowDimensions,
 } from "react-native";
 import { useEffect, useState } from "react";
-import { getCps, useGameStore } from "./src/store/useGameStore";
+import { getClickGain, getCps, useGameStore } from "./src/store/useGameStore";
+import { OVENS } from "./src/data/ovens";
 import {
   AchievementsPage,
   AutomationPage,
@@ -34,8 +35,10 @@ function Cookie({
   small?: boolean;
   onPress?: () => void;
 }) {
-  const { width } = useWindowDimensions();
-  const s = small ? 54 : Math.min(190, Math.max(100, width * 0.285));
+  const { width, height } = useWindowDimensions();
+  const s = small
+    ? 54
+    : Math.min(190, Math.max(100, width * 0.285), Math.max(100, height * 0.19));
   if (!small)
     return (
       <Pressable onPress={onPress} style={{ width: s, height: s }}>
@@ -111,7 +114,11 @@ function Side({
 export default function App() {
   const [tab, setTab] = useState(0);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [rebirthOpen, setRebirthOpen] = useState(false);
   const [panel, setPanel] = useState<"mail" | "missions" | null>(null);
+  const [resetStage, setResetStage] = useState(0);
+  const [lastGain, setLastGain] = useState(0);
   const { width } = useWindowDimensions();
   const phone = width < 500;
   const game = useGameStore();
@@ -124,11 +131,17 @@ export default function App() {
   useEffect(() => {
     game.checkOffline();
   }, [game.checkOffline]);
+  useEffect(() => {
+    game.ensureAllOvens();
+  }, [game.ensureAllOvens]);
   const tapCookie = () => {
-    game.click();
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(
-      () => undefined,
-    );
+    const gain = game.click();
+    setLastGain(gain);
+    setTimeout(() => setLastGain(0), 700);
+    if (game.settings.vibration)
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(
+        () => undefined,
+      );
   };
   const tabs = [
     "🏠\n홈",
@@ -143,9 +156,12 @@ export default function App() {
     <SafeAreaView style={s0.safe}>
       <StatusBar style="dark" />
       <View style={[s0.head, phone && s0.headPhone]}>
-        <View style={[s0.avatar, phone && s0.avatarPhone]}>
+        <Pressable
+          onPress={() => setProfileOpen(true)}
+          style={[s0.avatar, phone && s0.avatarPhone]}
+        >
           <Cookie small />
-        </View>
+        </Pressable>
         <View style={[s0.res, phone && s0.resPhone]}>
           <Text numberOfLines={1} style={[s0.resT, phone && s0.resTPhone]}>
             🍪 {n.toLocaleString("ko-KR")}
@@ -153,12 +169,12 @@ export default function App() {
         </View>
         <View style={[s0.res, phone && s0.resPhone]}>
           <Text numberOfLines={1} style={[s0.resT, phone && s0.resTPhone]}>
-            🎟️ 148
+            🍫 {game.chocoChips.toLocaleString("ko-KR")}
           </Text>
         </View>
         <View style={[s0.res, phone && s0.resPhone]}>
           <Text numberOfLines={1} style={[s0.resT, phone && s0.resTPhone]}>
-            💎 0
+            💎 {game.premiumChips.toLocaleString("ko-KR")}
           </Text>
         </View>
         <View style={[s0.res, s0.cps, phone && s0.resPhone]}>
@@ -193,18 +209,44 @@ export default function App() {
         </View>
         <View style={s0.board}>
           <View style={s0.statRow}>
-            <Stat
-              a="클릭"
-              b={`+${Math.max(1, Math.floor((game.ovens.find((o) => o.ovenId === game.equippedOvenId)?.level || 1) * Math.pow(1.5, game.rebirths)))}`}
-            />
+            <Stat a="클릭" b={`+${getClickGain(game)}`} />
             <Stat a="환생" b={`x${Math.pow(1.5, game.rebirths).toFixed(2)}`} />
           </View>
           <Text style={s0.work}>쿠키 작업대</Text>
+          <View style={s0.boostRow}>
+            <Pressable
+              disabled={game.boostUntil > Date.now() || game.cookies < 5000}
+              onPress={() => game.activateBoost(2)}
+              style={[
+                s0.boostCard,
+                game.boostUntil > Date.now() && s0.claimDisabled,
+              ]}
+            >
+              <Text style={s0.boostTitle}>🔥 더블 포션</Text>
+              <Text style={s0.boostSub}>
+                {game.boostUntil > Date.now() ? "적용 중" : "2배 · 5,000 쿠키"}
+              </Text>
+            </Pressable>
+            <Pressable
+              disabled={game.boostUntil > Date.now() || game.cookies < 25000}
+              onPress={() => game.activateBoost(4)}
+              style={[
+                s0.boostCard,
+                s0.feverCard,
+                game.boostUntil > Date.now() && s0.claimDisabled,
+              ]}
+            >
+              <Text style={s0.boostTitle}>🌈 피버 타임</Text>
+              <Text style={s0.boostSub}>
+                {game.boostUntil > Date.now() ? "적용 중" : "4배 · 25,000 쿠키"}
+              </Text>
+            </Pressable>
+          </View>
           <View style={s0.play}>
             <View style={s0.left}>
               <Side e="📬" t="우편" onPress={() => setPanel("mail")} />
               <Side e="📋" t="미션" onPress={() => setPanel("missions")} />
-              <Pressable onPress={() => setTab(5)} style={s0.side}>
+              <Pressable onPress={() => setRebirthOpen(true)} style={s0.side}>
                 <Text style={s0.sideE}>😇</Text>
                 <Text style={s0.sideT}>환생</Text>
               </Pressable>
@@ -216,6 +258,9 @@ export default function App() {
             <View style={s0.cookieZone}>
               <View style={s0.shadow} />
               <Cookie onPress={tapCookie} />
+              {lastGain > 0 && (
+                <Text style={s0.gain}>+{lastGain.toLocaleString("ko-KR")}</Text>
+              )}
               <Text style={s0.tap}>쿠키를 눌러 굽기</Text>
             </View>
             <View style={s0.right}>
@@ -277,6 +322,7 @@ export default function App() {
             </Text>
             {panel === "mail"
               ? [
+                  ["tutorial", "안내 완료 선물", "초코칩 10개"],
                   ["welcome", "베이커리 개업 선물", "쿠키 500개"],
                   ["chips", "초코칩 꾸러미", "쿠키 3,000개"],
                   ["moon", "달빛 배송", "쿠키 2,500개"],
@@ -301,28 +347,63 @@ export default function App() {
                   );
                 })
               : [
-                  ["쿠키 100회 굽기", `${game.taps}/100`, game.taps >= 100],
+                  ["tap", "쿠키 100회 굽기", game.taps, 100, "쿠키 500개"],
                   [
+                    "chip",
                     "초코칩 20개 모으기",
-                    `${game.chocoChips}/20`,
-                    game.chocoChips >= 20,
+                    game.chocoChips,
+                    20,
+                    "쿠키 2,000개",
                   ],
                   [
-                    "자동화 오븐 구매",
-                    `${Object.values(game.buildings).reduce((a, b) => a + b, 0)}/1`,
-                    Object.values(game.buildings).some(Boolean),
+                    "building",
+                    "자동화 오븐 1개 구매",
+                    Object.values(game.buildings).reduce((a, b) => a + b, 0),
+                    1,
+                    "초코칩 2개",
                   ],
-                ].map(([title, progress, done]) => (
-                  <View key={String(title)} style={s0.mailRow}>
-                    <View>
-                      <Text style={s0.mailTitle}>
-                        {done ? "✅ " : "🎯 "}
-                        {title}
-                      </Text>
-                      <Text style={s0.mailSub}>{progress}</Text>
+                ].map(([id, title, current, target, reward]) => {
+                  const missionId = String(id);
+                  const value = Number(current);
+                  const goal = Number(target);
+                  const done = value >= goal;
+                  const claimed = game.claimedMissions.includes(missionId);
+                  return (
+                    <View key={String(title)} style={s0.mailRow}>
+                      <View>
+                        <Text style={s0.mailTitle}>
+                          {done ? "✅ " : "🎯 "}
+                          {title}
+                        </Text>
+                        <Text style={s0.mailSub}>
+                          {value}/{goal} · 보상 {reward}
+                        </Text>
+                        <View style={s0.missionTrack}>
+                          <View
+                            style={[
+                              s0.missionFill,
+                              {
+                                width: `${Math.min(100, (value / goal) * 100)}%`,
+                              },
+                            ]}
+                          />
+                        </View>
+                      </View>
+                      <Pressable
+                        disabled={!done || claimed}
+                        onPress={() => game.claimMission(missionId)}
+                        style={[
+                          s0.mailButton,
+                          (!done || claimed) && s0.claimDisabled,
+                        ]}
+                      >
+                        <Text style={s0.languageText}>
+                          {claimed ? "받음" : "받기"}
+                        </Text>
+                      </Pressable>
                     </View>
-                  </View>
-                ))}
+                  );
+                })}
             <Pressable onPress={() => setPanel(null)} style={s0.closeButton}>
               <Text style={s0.closeText}>닫기</Text>
             </Pressable>
@@ -364,23 +445,182 @@ export default function App() {
             <View style={s0.settingRow}>
               <Text style={s0.settingLabel}>언어</Text>
               <Pressable
-                onPress={() =>
+                onPress={() => {
+                  const order = [
+                    "ko",
+                    "en",
+                    "ja",
+                    "zh",
+                    "ar",
+                    "de",
+                    "ru",
+                  ] as const;
                   game.updateSettings({
-                    language: game.settings.language === "ko" ? "en" : "ko",
-                  })
-                }
+                    language:
+                      order[
+                        (order.indexOf(game.settings.language) + 1) %
+                          order.length
+                      ],
+                  });
+                }}
                 style={s0.languageButton}
               >
                 <Text style={s0.languageText}>
-                  {game.settings.language === "ko" ? "한국어" : "English"}
+                  {
+                    {
+                      ko: "한국어",
+                      en: "English",
+                      ja: "日本語",
+                      zh: "中文",
+                      ar: "العربية",
+                      de: "Deutsch",
+                      ru: "Русский",
+                    }[game.settings.language]
+                  }
                 </Text>
               </Pressable>
             </View>
+            {resetStage > 0 && (
+              <Text style={s0.resetWarning}>
+                {
+                  [
+                    "",
+                    "데이터를 삭제하시겠습니까?",
+                    "정말로요?",
+                    "진짜 정말로 리셋하시겠습니까?",
+                    "정말로 지금까지 한 것을 삭제하시겠습니까? 노력한 기록입니다.",
+                    "정말 진짜로 삭제하시겠습니까? 해금한 도전과제와 노력이 사라지며 되돌릴 수 없습니다. 마지막 경고입니다.",
+                  ][resetStage]
+                }
+              </Text>
+            )}
+            <Pressable
+              onPress={() => {
+                if (resetStage >= 5) {
+                  game.resetGame();
+                  setResetStage(0);
+                  setSettingsOpen(false);
+                } else setResetStage(resetStage + 1);
+              }}
+              style={s0.resetButton}
+            >
+              <Text style={s0.closeText}>
+                {resetStage >= 5 ? "삭제 완료" : "데이터 초기화"}
+              </Text>
+            </Pressable>
             <Pressable
               onPress={() => setSettingsOpen(false)}
               style={s0.closeButton}
             >
               <Text style={s0.closeText}>닫기</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
+      <Modal transparent animationType="fade" visible={!game.tutorialComplete}>
+        <View style={s0.tutorialShade}>
+          <View style={s0.tutorialCard}>
+            <Text style={s0.modalTitle}>🍪 베이커리 안내</Text>
+            <Text style={s0.tutorialText}>
+              {
+                [
+                  "가운데 쿠키를 눌러 첫 쿠키를 구워보세요.",
+                  "쿠키가 쌓이면 자동화 오븐을 구매하실 수 있습니다.",
+                  "자동화 오븐을 15개까지 늘려보세요.",
+                  "초코칩으로 오븐 뽑기에 도전해 보세요.",
+                  "안내를 완료했습니다. 우편함에서 초코칩 10개를 받아가세요.",
+                ][Math.min(game.tutorialStep, 4)]
+              }
+            </Text>
+            <Pressable
+              onPress={() => game.advanceTutorial()}
+              style={s0.closeButton}
+            >
+              <Text style={s0.closeText}>
+                {game.tutorialStep >= 4 ? "완료" : "다음"}
+              </Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
+      <Modal
+        transparent
+        animationType="fade"
+        visible={profileOpen}
+        onRequestClose={() => setProfileOpen(false)}
+      >
+        <View style={s0.modalShade}>
+          <View style={s0.modalCard}>
+            <Text style={s0.modalTitle}>🍪 베이커 프로필</Text>
+            <Text style={s0.settingLabel}>
+              누적 쿠키 {game.totalCookies.toLocaleString("ko-KR")}
+            </Text>
+            <Text style={s0.settingLabel}>
+              누적 터치 {game.taps.toLocaleString("ko-KR")}
+            </Text>
+            <Text style={s0.settingLabel}>
+              누적 뽑기 {game.totalDraws.toLocaleString("ko-KR")}
+            </Text>
+            <Text style={s0.settingLabel}>환생 {game.rebirths}회</Text>
+            <Text style={s0.settingLabel}>
+              장착 오븐{" "}
+              {OVENS.find((oven) => oven.id === game.equippedOvenId)?.name ??
+                "없음"}
+            </Text>
+            <Pressable
+              onPress={() => setProfileOpen(false)}
+              style={s0.closeButton}
+            >
+              <Text style={s0.closeText}>닫기</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
+      <Modal
+        transparent
+        animationType="fade"
+        visible={rebirthOpen}
+        onRequestClose={() => setRebirthOpen(false)}
+      >
+        <View style={s0.modalShade}>
+          <View style={s0.modalCard}>
+            <Text style={s0.modalTitle}>😇 환생</Text>
+            <Text style={s0.settingLabel}>현재 환생 {game.rebirths}회</Text>
+            <Text style={s0.settingLabel}>
+              현재 배율 x{Math.pow(1.5, game.rebirths).toFixed(2)} → 다음 x
+              {Math.pow(1.5, game.rebirths + 1).toFixed(2)}
+            </Text>
+            <Text style={s0.mailSub}>
+              현재 쿠키만 초기화되며 오븐, 자동화, 강화와 모든 영구 진행은
+              유지됩니다.
+            </Text>
+            <View style={s0.progressTrack}>
+              <View
+                style={[
+                  s0.progressFill,
+                  {
+                    width: `${Math.min(100, (game.cookies / (100000 * Math.pow(5, game.rebirths))) * 100)}%`,
+                  },
+                ]}
+              />
+            </View>
+            <Text style={s0.mailSub}>
+              {game.cookies.toLocaleString("ko-KR")} /{" "}
+              {(100000 * Math.pow(5, game.rebirths)).toLocaleString("ko-KR")}
+            </Text>
+            <Pressable
+              disabled={game.cookies < 100000 * Math.pow(5, game.rebirths)}
+              onPress={() => {
+                game.rebirth();
+                setRebirthOpen(false);
+              }}
+              style={[
+                s0.closeButton,
+                game.cookies < 100000 * Math.pow(5, game.rebirths) &&
+                  s0.claimDisabled,
+              ]}
+            >
+              <Text style={s0.closeText}>환생하기</Text>
             </Pressable>
           </View>
         </View>
@@ -514,6 +754,25 @@ const s0 = StyleSheet.create({
     paddingVertical: 9,
     borderRadius: 12,
   },
+  progressTrack: {
+    height: 12,
+    backgroundColor: "#ecdcb9",
+    borderRadius: 10,
+    overflow: "hidden",
+  },
+  progressFill: {
+    height: "100%",
+    backgroundColor: "#ffb900",
+    borderRadius: 10,
+  },
+  missionTrack: {
+    height: 6,
+    marginTop: 6,
+    backgroundColor: "#eadabb",
+    borderRadius: 8,
+    overflow: "hidden",
+  },
+  missionFill: { height: "100%", backgroundColor: "#77b5e8", borderRadius: 8 },
   languageButton: {
     backgroundColor: "#ffca45",
     paddingHorizontal: 14,
@@ -529,6 +788,36 @@ const s0 = StyleSheet.create({
     marginTop: 8,
   },
   closeText: { color: "#fff8e9", fontSize: 16, fontWeight: "900" },
+  resetButton: {
+    backgroundColor: "#9e1634",
+    paddingVertical: 11,
+    alignItems: "center",
+    borderRadius: 15,
+  },
+  resetWarning: {
+    color: "#8a1832",
+    fontSize: 14,
+    fontWeight: "800",
+    lineHeight: 20,
+  },
+  tutorialShade: {
+    flex: 1,
+    justifyContent: "flex-start",
+    alignItems: "center",
+    paddingTop: 88,
+    paddingHorizontal: 18,
+  },
+  tutorialCard: {
+    width: "100%",
+    maxWidth: 440,
+    backgroundColor: "#fff8e9",
+    borderWidth: 3,
+    borderColor: "#dba020",
+    borderRadius: 22,
+    padding: 16,
+    elevation: 12,
+  },
+  tutorialText: { color: INK, fontSize: 16, fontWeight: "800", lineHeight: 23 },
   claimT: { fontSize: 20, fontWeight: "900", color: INK },
   board: {
     flex: 1,
@@ -566,6 +855,19 @@ const s0 = StyleSheet.create({
     fontWeight: "900",
     color: INK,
   },
+  boostRow: { flexDirection: "row", gap: 8, marginVertical: 5 },
+  boostCard: {
+    flex: 1,
+    minHeight: 46,
+    borderRadius: 15,
+    backgroundColor: "#ffcc62",
+    padding: 8,
+    borderWidth: 2,
+    borderColor: "#d7881c",
+  },
+  feverCard: { backgroundColor: "#ef8fbd", borderColor: "#a541aa" },
+  boostTitle: { color: INK, fontWeight: "900", fontSize: 12 },
+  boostSub: { color: "#62412e", fontWeight: "800", fontSize: 10, marginTop: 2 },
   play: {
     flex: 1,
     flexDirection: "row",
@@ -586,6 +888,20 @@ const s0 = StyleSheet.create({
   sideE: { fontSize: 20 },
   sideT: { fontSize: 12, fontWeight: "900", color: INK },
   cookieZone: { flex: 1, alignItems: "center", justifyContent: "center" },
+  gain: {
+    position: "absolute",
+    top: 3,
+    backgroundColor: "#fff8e9",
+    borderRadius: 18,
+    borderWidth: 2,
+    borderColor: "#dba020",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    color: "#8a1832",
+    fontWeight: "900",
+    fontSize: 18,
+    elevation: 8,
+  },
   shadow: {
     position: "absolute",
     width: 290,
