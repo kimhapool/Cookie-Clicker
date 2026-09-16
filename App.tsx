@@ -1,5 +1,6 @@
 import { StatusBar } from "expo-status-bar";
 import * as Haptics from "expo-haptics";
+import { useAudioPlayer } from "expo-audio";
 import {
   Image,
   Modal,
@@ -83,13 +84,15 @@ function Stat({
   a,
   b,
   compact = false,
+  tight = false,
 }: {
   a: string;
   b: string;
   compact?: boolean;
+  tight?: boolean;
 }) {
   return (
-    <View style={[s0.stat, compact && s0.statCompact]}>
+    <View style={[s0.stat, compact && s0.statCompact, tight && s0.statTight]}>
       <Text style={s0.statA}>{a}</Text>
       <Text style={s0.statB}>{b}</Text>
     </View>
@@ -99,13 +102,15 @@ function Side({
   e,
   t,
   onPress,
+  compact = false,
 }: {
   e: string;
   t: string;
   onPress?: () => void;
+  compact?: boolean;
 }) {
   return (
-    <Pressable onPress={onPress} style={s0.side}>
+    <Pressable onPress={onPress} style={[s0.side, compact && s0.sideShort]}>
       <Text style={s0.sideE}>{e}</Text>
       <Text style={s0.sideT}>{t}</Text>
     </Pressable>
@@ -119,9 +124,15 @@ export default function App() {
   const [panel, setPanel] = useState<"mail" | "missions" | null>(null);
   const [resetStage, setResetStage] = useState(0);
   const [lastGain, setLastGain] = useState(0);
-  const { width } = useWindowDimensions();
+  const { width, height } = useWindowDimensions();
   const phone = width < 500;
+  const short = height < 820;
   const game = useGameStore();
+  const popPlayer = useAudioPlayer(require("./assets/audio/5D.wav"));
+  const drumPlayer = useAudioPlayer(require("./assets/audio/MV.wav"));
+  const bitePlayer = useAudioPlayer(require("./assets/audio/om.wav"));
+  const crumblePlayer = useAudioPlayer(require("./assets/audio/wb.wav"));
+  const musicPlayer = useAudioPlayer(require("./assets/audio/eM.wav"));
   const n = game.cookies;
   const cps = getCps(game);
   useEffect(() => {
@@ -134,6 +145,12 @@ export default function App() {
   useEffect(() => {
     game.ensureAllOvens();
   }, [game.ensureAllOvens]);
+  useEffect(() => {
+    musicPlayer.loop = true;
+    musicPlayer.volume = 0.16;
+    if (game.settings.music) musicPlayer.play();
+    else musicPlayer.pause();
+  }, [game.settings.music, musicPlayer]);
   const tapCookie = () => {
     const gain = game.click();
     setLastGain(gain);
@@ -142,6 +159,18 @@ export default function App() {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(
         () => undefined,
       );
+    if (game.settings.sound) {
+      const player =
+        game.settings.tapSound === "pop"
+          ? popPlayer
+          : game.settings.tapSound === "drum"
+            ? drumPlayer
+            : game.settings.tapSound === "crumble"
+              ? crumblePlayer
+              : bitePlayer;
+      player.seekTo(0);
+      player.play();
+    }
   };
   const tabs = [
     "🏠\n홈",
@@ -155,7 +184,7 @@ export default function App() {
   return (
     <SafeAreaView style={s0.safe}>
       <StatusBar style="dark" />
-      <View style={[s0.head, phone && s0.headPhone]}>
+      <View style={[s0.head, phone && s0.headPhone, short && s0.headShort]}>
         <Pressable
           onPress={() => setProfileOpen(true)}
           style={[s0.avatar, phone && s0.avatarPhone]}
@@ -189,8 +218,15 @@ export default function App() {
           <Text>⚙️</Text>
         </Pressable>
       </View>
-      <View style={[s0.body, phone && s0.bodyPhone, tab !== 0 && s0.hidden]}>
-        <View style={s0.off}>
+      <View
+        style={[
+          s0.body,
+          phone && s0.bodyPhone,
+          short && s0.bodyShort,
+          tab !== 0 && s0.hidden,
+        ]}
+      >
+        <View style={[s0.off, short && s0.offShort]}>
           <View>
             <Text style={s0.offTitle}>오프라인 보상</Text>
             <Text style={s0.offSub}>
@@ -207,13 +243,13 @@ export default function App() {
             <Text style={s0.claimT}>받기</Text>
           </Pressable>
         </View>
-        <View style={s0.board}>
+        <View style={[s0.board, short && s0.boardShort]}>
           <View style={s0.statRow}>
             <Stat a="클릭" b={`+${getClickGain(game)}`} />
             <Stat a="환생" b={`x${Math.pow(1.5, game.rebirths).toFixed(2)}`} />
           </View>
           <Text style={s0.work}>쿠키 작업대</Text>
-          <View style={s0.boostRow}>
+          <View style={[s0.boostRow, short && s0.boostRowShort]}>
             <Pressable
               disabled={game.boostUntil > Date.now() || game.cookies < 5000}
               onPress={() => game.activateBoost(2)}
@@ -243,14 +279,30 @@ export default function App() {
             </Pressable>
           </View>
           <View style={s0.play}>
-            <View style={s0.left}>
-              <Side e="📬" t="우편" onPress={() => setPanel("mail")} />
-              <Side e="📋" t="미션" onPress={() => setPanel("missions")} />
-              <Pressable onPress={() => setRebirthOpen(true)} style={s0.side}>
+            <View style={[s0.left, short && s0.leftShort]}>
+              <Side
+                e="📬"
+                t="우편"
+                compact={short}
+                onPress={() => setPanel("mail")}
+              />
+              <Side
+                e="📋"
+                t="미션"
+                compact={short}
+                onPress={() => setPanel("missions")}
+              />
+              <Pressable
+                onPress={() => setRebirthOpen(true)}
+                style={[s0.side, short && s0.sideShort]}
+              >
                 <Text style={s0.sideE}>😇</Text>
                 <Text style={s0.sideT}>환생</Text>
               </Pressable>
-              <Pressable onPress={() => setTab(1)} style={s0.side}>
+              <Pressable
+                onPress={() => setTab(1)}
+                style={[s0.side, short && s0.sideShort]}
+              >
                 <Text style={s0.sideE}>🎲</Text>
                 <Text style={s0.sideT}>확률</Text>
               </Pressable>
@@ -263,21 +315,31 @@ export default function App() {
               )}
               <Text style={s0.tap}>쿠키를 눌러 굽기</Text>
             </View>
-            <View style={s0.right}>
+            <View style={[s0.right, short && s0.rightShort]}>
               <Stat
                 compact
+                tight={short}
                 a="보유 오븐"
                 b={`${game.ovens.filter((o) => o.level > 0).length}종`}
               />
-              <Stat compact a="초코칩" b={`${game.chocoChips}개`} />
               <Stat
                 compact
+                tight={short}
+                a="초코칩"
+                b={`${game.chocoChips}개`}
+              />
+              <Stat
+                compact
+                tight={short}
                 a="버프"
                 b={game.boostUntil > Date.now() ? "2배 적용" : "대기"}
               />
             </View>
           </View>
-          <Pressable onPress={() => setTab(1)} style={s0.promo}>
+          <Pressable
+            onPress={() => setTab(1)}
+            style={[s0.promo, short && s0.promoShort]}
+          >
             <Text style={s0.promoE}>🎁</Text>
             <View>
               <Text style={s0.promoT}>오늘의 오븐</Text>
@@ -293,7 +355,7 @@ export default function App() {
       {tab === 4 && <ExchangePage />}
       {tab === 5 && <UpgradesPage />}
       {tab === 6 && <AchievementsPage />}
-      <View style={[s0.dock, phone && s0.dockPhone]}>
+      <View style={[s0.dock, phone && s0.dockPhone, short && s0.dockShort]}>
         {tabs.map((t, i) => (
           <Pressable
             key={t}
@@ -441,6 +503,33 @@ export default function App() {
                   game.updateSettings({ vibration })
                 }
               />
+            </View>
+            <View style={s0.settingRow}>
+              <Text style={s0.settingLabel}>탭 효과음</Text>
+              <Pressable
+                onPress={() => {
+                  const sounds = ["pop", "drum", "bite", "crumble"] as const;
+                  game.updateSettings({
+                    tapSound:
+                      sounds[
+                        (sounds.indexOf(game.settings.tapSound) + 1) %
+                          sounds.length
+                      ],
+                  });
+                }}
+                style={s0.languageButton}
+              >
+                <Text style={s0.languageText}>
+                  {
+                    {
+                      pop: "팝",
+                      drum: "드럼",
+                      bite: "바삭한 한입",
+                      crumble: "부스러짐",
+                    }[game.settings.tapSound]
+                  }
+                </Text>
+              </Pressable>
             </View>
             <View style={s0.settingRow}>
               <Text style={s0.settingLabel}>언어</Text>
@@ -641,6 +730,7 @@ const s0 = StyleSheet.create({
     borderColor: "#d69d2b",
   },
   headPhone: { height: 92, gap: 5, paddingHorizontal: 7 },
+  headShort: { height: 78 },
   avatar: {
     width: 70,
     height: 70,
@@ -680,6 +770,7 @@ const s0 = StyleSheet.create({
   settingPhone: { width: 40, height: 52, borderRadius: 11 },
   body: { flex: 1, padding: 22, gap: 13 },
   bodyPhone: { padding: 14, gap: 10 },
+  bodyShort: { padding: 10, gap: 7 },
   hidden: { display: "none" },
   coming: {
     flex: 1,
@@ -700,6 +791,7 @@ const s0 = StyleSheet.create({
     justifyContent: "space-between",
   },
   offTitle: { fontSize: 20, fontWeight: "900", color: INK, marginBottom: 8 },
+  offShort: { height: 88, paddingHorizontal: 16, borderWidth: 3 },
   offSub: { fontSize: 15, fontWeight: "800", color: "#72564b" },
   claim: {
     width: 120,
@@ -827,6 +919,7 @@ const s0 = StyleSheet.create({
     borderRadius: 44,
     padding: 14,
   },
+  boardShort: { borderRadius: 28, padding: 9 },
   statRow: {
     height: 72,
     flexDirection: "row",
@@ -847,6 +940,7 @@ const s0 = StyleSheet.create({
   statA: { fontSize: 14, fontWeight: "800", color: "#85888e" },
   statB: { fontSize: 21, fontWeight: "900", color: "#27384f" },
   statCompact: { flex: 0, height: 54, minWidth: 0, borderRadius: 18 },
+  statTight: { height: 40, borderRadius: 13 },
   work: {
     height: 28,
     textAlign: "center",
@@ -856,6 +950,7 @@ const s0 = StyleSheet.create({
     color: INK,
   },
   boostRow: { flexDirection: "row", gap: 8, marginVertical: 5 },
+  boostRowShort: { marginVertical: 1 },
   boostCard: {
     flex: 1,
     minHeight: 46,
@@ -875,7 +970,9 @@ const s0 = StyleSheet.create({
     justifyContent: "space-between",
   },
   left: { width: 66, gap: 6 },
+  leftShort: { gap: 3 },
   right: { width: 100, gap: 6 },
+  rightShort: { gap: 3 },
   side: {
     height: 52,
     borderRadius: 20,
@@ -885,6 +982,7 @@ const s0 = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  sideShort: { height: 39, borderRadius: 14, borderWidth: 2 },
   sideE: { fontSize: 20 },
   sideT: { fontSize: 12, fontWeight: "900", color: INK },
   cookieZone: { flex: 1, alignItems: "center", justifyContent: "center" },
@@ -942,6 +1040,7 @@ const s0 = StyleSheet.create({
     alignItems: "center",
     gap: 15,
   },
+  promoShort: { height: 64, borderRadius: 20 },
   promoE: { fontSize: 29 },
   promoT: { fontSize: 17, fontWeight: "900", color: INK },
   promoS: { fontSize: 13, fontWeight: "700", color: "#746359" },
@@ -956,6 +1055,7 @@ const s0 = StyleSheet.create({
     gap: 10,
   },
   dockPhone: { height: 108, padding: 7, gap: 4 },
+  dockShort: { height: 94, padding: 6, gap: 4 },
   tab: {
     flex: 1,
     borderRadius: 17,
