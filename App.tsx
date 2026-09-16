@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import { useEffect, useState } from "react";
 import { getCps, useGameStore } from "./src/store/useGameStore";
+import { AutomationPage, DrawPage, ExchangePage, InventoryPage } from "./src/components/GamePages";
 
 const WINE = "#850019",
   PAPER = "#f8eed7",
@@ -129,7 +130,7 @@ export default function App() {
           <Text>⚙️</Text>
         </View>
       </View>
-      <View style={[s0.body, phone && s0.bodyPhone]}>
+      <View style={[s0.body, phone && s0.bodyPhone, tab !== 0 && s0.hidden]}>
         <View style={s0.off}>
           <View>
             <Text style={s0.offTitle}>오프라인 보상</Text>
@@ -173,6 +174,11 @@ export default function App() {
           </View>
         </View>
       </View>
+      {tab === 1 && <DrawPage />}
+      {tab === 2 && <InventoryPage />}
+      {tab === 3 && <AutomationPage />}
+      {tab === 4 && <ExchangePage />}
+      {tab > 4 && <View style={s0.coming}><Text style={s0.comingText}>준비 중인 기능입니다.</Text></View>}
       <View style={s0.dock}>
         {tabs.map((t, i) => (
           <Pressable
@@ -239,6 +245,9 @@ const s0 = StyleSheet.create({
   settingPhone: { width: 40, height: 52, borderRadius: 11 },
   body: { flex: 1, padding: 22, gap: 13 },
   bodyPhone: { padding: 14, gap: 10 },
+  hidden: { display: "none" },
+  coming: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: PAPER },
+  comingText: { fontSize: 18, fontWeight: "900", color: INK },
   off: {
     height: 118,
     borderRadius: 26,
