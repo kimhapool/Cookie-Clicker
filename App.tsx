@@ -128,8 +128,10 @@ export default function App() {
   const [panel, setPanel] = useState<"mail" | "missions" | null>(null);
   const [resetStage, setResetStage] = useState(0);
   const [lastGain, setLastGain] = useState(0);
+  const [achievementToast, setAchievementToast] = useState<string | null>(null);
   const [tapStage, setTapStage] = useState(0);
   const tapTimes = useRef<number[]>([]);
+  const shownAchievements = useRef(new Set<string>());
   const ripple = useRef(new Animated.Value(0)).current;
   const bite = useRef(new Animated.Value(0)).current;
   const { width, height } = useWindowDimensions();
@@ -184,6 +186,23 @@ export default function App() {
     calmMusicPlayer,
     excitingMusicPlayer,
   ]);
+  useEffect(() => {
+    const candidates = [
+      ["첫 반죽", game.taps >= 1],
+      ["빵집 개업", Object.values(game.buildings).some(Boolean)],
+      ["새로운 생", game.rebirths >= 1],
+      ["오븐 수집가", game.totalDraws >= 10],
+    ] as const;
+    const found = candidates.find(
+      ([name, unlocked]) => unlocked && !shownAchievements.current.has(name),
+    );
+    if (found) {
+      shownAchievements.current.add(found[0]);
+      setAchievementToast(`🏆 도전과제 달성: ${found[0]}`);
+      const timer = setTimeout(() => setAchievementToast(null), 2600);
+      return () => clearTimeout(timer);
+    }
+  }, [game.taps, game.buildings, game.rebirths, game.totalDraws]);
   const tapCookie = () => {
     const gain = game.click();
     const now = Date.now();
@@ -525,6 +544,11 @@ export default function App() {
           </Pressable>
         ))}
       </View>
+      {achievementToast && (
+        <View pointerEvents="none" style={s0.achievementToast}>
+          <Text style={s0.achievementText}>{achievementToast}</Text>
+        </View>
+      )}
       <Modal
         transparent
         animationType="slide"
@@ -1286,6 +1310,19 @@ const s0 = StyleSheet.create({
   },
   dockPhone: { height: 108, padding: 7, gap: 4 },
   dockShort: { height: 94, padding: 6, gap: 4 },
+  achievementToast: {
+    position: "absolute",
+    bottom: 126,
+    alignSelf: "center",
+    backgroundColor: "#401923",
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    borderRadius: 18,
+    borderWidth: 2,
+    borderColor: "#ffca45",
+    elevation: 20,
+  },
+  achievementText: { color: "#fff8e9", fontSize: 15, fontWeight: "900" },
   tab: {
     flex: 1,
     borderRadius: 17,
