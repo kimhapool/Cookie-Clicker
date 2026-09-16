@@ -10,6 +10,12 @@ type OwnedOven = {
   fusion: number;
   trait: "없음" | "샤이니" | "반전" | "글리치";
 };
+type Settings = {
+  sound: boolean;
+  music: boolean;
+  vibration: boolean;
+  language: "ko" | "en";
+};
 type Game = {
   cookies: number;
   totalCookies: number;
@@ -18,6 +24,7 @@ type Game = {
   premiumChips: number;
   dictionaries: number;
   diaries: number;
+  settings: Settings;
   rebirths: number;
   buildings: Record<string, number>;
   ovens: OwnedOven[];
@@ -31,6 +38,7 @@ type Game = {
   rebirth(): boolean;
   draw(premium?: boolean): Oven | null;
   equipOven(id: string): boolean;
+  updateSettings(value: Partial<Settings>): void;
   checkOffline(): void;
   claimOffline(): number;
   tick(seconds: number): void;
@@ -64,6 +72,7 @@ export const useGameStore = create<Game>()(
       premiumChips: 0,
       dictionaries: 0,
       diaries: 0,
+      settings: { sound: true, music: true, vibration: true, language: "ko" },
       rebirths: 0,
       buildings: initialBuildings,
       ovens: initialOvens,
@@ -148,6 +157,8 @@ export const useGameStore = create<Game>()(
         set({ equippedOvenId: id });
         return true;
       },
+      updateSettings: (value) =>
+        set((s) => ({ settings: { ...s.settings, ...value } })),
       checkOffline: () => {
         const s = get();
         const seconds = Math.min(
@@ -191,6 +202,7 @@ export const useGameStore = create<Game>()(
         rebirth: undefined,
         draw: undefined,
         equipOven: undefined,
+        updateSettings: undefined,
         checkOffline: undefined,
         claimOffline: undefined,
         tick: undefined,

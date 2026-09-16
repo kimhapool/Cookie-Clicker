@@ -2,10 +2,12 @@ import { StatusBar } from "expo-status-bar";
 import * as Haptics from "expo-haptics";
 import {
   Image,
+  Modal,
   Pressable,
   SafeAreaView,
   StyleSheet,
   Text,
+  Switch,
   View,
   useWindowDimensions,
 } from "react-native";
@@ -100,6 +102,7 @@ function Side({ e, t }: { e: string; t: string }) {
 }
 export default function App() {
   const [tab, setTab] = useState(0);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const { width } = useWindowDimensions();
   const phone = width < 500;
   const game = useGameStore();
@@ -155,7 +158,7 @@ export default function App() {
           </Text>
         </View>
         <Pressable
-          onPress={() => setTab(6)}
+          onPress={() => setSettingsOpen(true)}
           style={[s0.setting, phone && s0.settingPhone]}
         >
           <Text>⚙️</Text>
@@ -243,6 +246,62 @@ export default function App() {
           </Pressable>
         ))}
       </View>
+      <Modal
+        transparent
+        animationType="fade"
+        visible={settingsOpen}
+        onRequestClose={() => setSettingsOpen(false)}
+      >
+        <View style={s0.modalShade}>
+          <View style={s0.modalCard}>
+            <Text style={s0.modalTitle}>⚙️ 설정</Text>
+            <View style={s0.settingRow}>
+              <Text style={s0.settingLabel}>효과음</Text>
+              <Switch
+                value={game.settings.sound}
+                onValueChange={(sound) => game.updateSettings({ sound })}
+              />
+            </View>
+            <View style={s0.settingRow}>
+              <Text style={s0.settingLabel}>배경 음악</Text>
+              <Switch
+                value={game.settings.music}
+                onValueChange={(music) => game.updateSettings({ music })}
+              />
+            </View>
+            <View style={s0.settingRow}>
+              <Text style={s0.settingLabel}>진동</Text>
+              <Switch
+                value={game.settings.vibration}
+                onValueChange={(vibration) =>
+                  game.updateSettings({ vibration })
+                }
+              />
+            </View>
+            <View style={s0.settingRow}>
+              <Text style={s0.settingLabel}>언어</Text>
+              <Pressable
+                onPress={() =>
+                  game.updateSettings({
+                    language: game.settings.language === "ko" ? "en" : "ko",
+                  })
+                }
+                style={s0.languageButton}
+              >
+                <Text style={s0.languageText}>
+                  {game.settings.language === "ko" ? "한국어" : "English"}
+                </Text>
+              </Pressable>
+            </View>
+            <Pressable
+              onPress={() => setSettingsOpen(false)}
+              style={s0.closeButton}
+            >
+              <Text style={s0.closeText}>닫기</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -328,6 +387,46 @@ const s0 = StyleSheet.create({
     justifyContent: "center",
   },
   claimDisabled: { opacity: 0.45 },
+  modalShade: {
+    flex: 1,
+    backgroundColor: "#00000077",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 24,
+  },
+  modalCard: {
+    width: "100%",
+    maxWidth: 440,
+    backgroundColor: "#fff8e9",
+    borderRadius: 28,
+    padding: 22,
+    gap: 12,
+    borderWidth: 3,
+    borderColor: "#d9bd85",
+  },
+  modalTitle: { fontSize: 25, fontWeight: "900", color: INK, marginBottom: 4 },
+  settingRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    minHeight: 46,
+  },
+  settingLabel: { fontSize: 17, fontWeight: "800", color: INK },
+  languageButton: {
+    backgroundColor: "#ffca45",
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    borderRadius: 12,
+  },
+  languageText: { color: INK, fontWeight: "900" },
+  closeButton: {
+    backgroundColor: "#850019",
+    paddingVertical: 14,
+    alignItems: "center",
+    borderRadius: 15,
+    marginTop: 8,
+  },
+  closeText: { color: "#fff8e9", fontSize: 16, fontWeight: "900" },
   claimT: { fontSize: 20, fontWeight: "900", color: INK },
   board: {
     flex: 1,
