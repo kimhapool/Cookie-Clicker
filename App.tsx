@@ -19,6 +19,7 @@ import { getClickGain, getCps, useGameStore } from "./src/store/useGameStore";
 import { OVENS } from "./src/data/ovens";
 import { BUILDINGS } from "./src/data/buildings";
 import { labels } from "./src/i18n/translations";
+import { compactNumber } from "./src/utils/numbers";
 import {
   AchievementsPage,
   AutomationPage,
@@ -278,22 +279,22 @@ export default function App() {
         </Pressable>
         <View style={[s0.res, phone && s0.resPhone]}>
           <Text numberOfLines={1} style={[s0.resT, phone && s0.resTPhone]}>
-            🍪 {n.toLocaleString("ko-KR")}
+            🍪 {compactNumber(n)}
           </Text>
         </View>
         <View style={[s0.res, phone && s0.resPhone]}>
           <Text numberOfLines={1} style={[s0.resT, phone && s0.resTPhone]}>
-            🍫 {game.chocoChips.toLocaleString("ko-KR")}
+            🍫 {compactNumber(game.chocoChips)}
           </Text>
         </View>
         <View style={[s0.res, phone && s0.resPhone]}>
           <Text numberOfLines={1} style={[s0.resT, phone && s0.resTPhone]}>
-            💎 {game.premiumChips.toLocaleString("ko-KR")}
+            💎 {compactNumber(game.premiumChips)}
           </Text>
         </View>
         <View style={[s0.res, s0.cps, phone && s0.resPhone]}>
           <Text numberOfLines={1} style={[s0.resT, phone && s0.resTPhone]}>
-            ⚡ CPS {Math.floor(cps).toLocaleString("ko-KR")}
+            ⚡ CPS {compactNumber(cps)}
           </Text>
         </View>
         <Pressable
