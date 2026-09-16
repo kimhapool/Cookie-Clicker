@@ -17,6 +17,7 @@ import {
 import { useEffect, useRef, useState } from "react";
 import { getClickGain, getCps, useGameStore } from "./src/store/useGameStore";
 import { OVENS } from "./src/data/ovens";
+import { BUILDINGS } from "./src/data/buildings";
 import {
   AchievementsPage,
   AutomationPage,
@@ -274,6 +275,22 @@ export default function App() {
                 : "오프라인 보상을 준비 중입니다"}
             </Text>
           </View>
+          {BUILDINGS.some(
+            (building) => (game.buildings[building.id] || 0) > 0,
+          ) && (
+            <View style={s0.automationStrip}>
+              {BUILDINGS.filter(
+                (building) => (game.buildings[building.id] || 0) > 0,
+              ).map((building) => (
+                <View key={building.id} style={s0.automationIcon}>
+                  <Text style={s0.automationEmoji}>{building.emoji}</Text>
+                  <Text style={s0.automationCount}>
+                    ×{game.buildings[building.id]}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          )}
           <Pressable
             disabled={!game.pendingOffline}
             onPress={() => game.claimOffline()}
@@ -1180,6 +1197,27 @@ const s0 = StyleSheet.create({
     borderColor: "#8a4614",
   },
   tap: { marginTop: 12, color: INK, fontWeight: "900", fontSize: 16 },
+  automationStrip: {
+    minHeight: 52,
+    marginHorizontal: 8,
+    marginBottom: 7,
+    paddingHorizontal: 10,
+    borderRadius: 16,
+    backgroundColor: "#d8edff",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    overflow: "hidden",
+  },
+  automationIcon: { flexDirection: "row", alignItems: "center" },
+  automationEmoji: { fontSize: 30 },
+  automationCount: {
+    marginLeft: -5,
+    marginTop: 20,
+    color: INK,
+    fontSize: 11,
+    fontWeight: "900",
+  },
   promo: {
     height: 82,
     borderRadius: 26,
