@@ -11,7 +11,14 @@ import {
 } from "react-native";
 import { useEffect, useState } from "react";
 import { getCps, useGameStore } from "./src/store/useGameStore";
-import { AutomationPage, DrawPage, ExchangePage, InventoryPage } from "./src/components/GamePages";
+import {
+  AchievementsPage,
+  AutomationPage,
+  DrawPage,
+  ExchangePage,
+  InventoryPage,
+  UpgradesPage,
+} from "./src/components/GamePages";
 
 const WINE = "#850019",
   PAPER = "#f8eed7",
@@ -67,7 +74,15 @@ function Cookie({
     </View>
   );
 }
-function Stat({ a, b, compact = false }: { a: string; b: string; compact?: boolean }) {
+function Stat({
+  a,
+  b,
+  compact = false,
+}: {
+  a: string;
+  b: string;
+  compact?: boolean;
+}) {
   return (
     <View style={[s0.stat, compact && s0.statCompact]}>
       <Text style={s0.statA}>{a}</Text>
@@ -94,9 +109,14 @@ export default function App() {
     const timer = setInterval(() => game.tick(1), 1000);
     return () => clearInterval(timer);
   }, [game.tick]);
+  useEffect(() => {
+    game.checkOffline();
+  }, [game.checkOffline]);
   const tapCookie = () => {
     game.click();
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(
+      () => undefined,
+    );
   };
   const tabs = [
     "🏠\n홈",
@@ -115,43 +135,71 @@ export default function App() {
           <Cookie small />
         </View>
         <View style={[s0.res, phone && s0.resPhone]}>
-          <Text numberOfLines={1} style={[s0.resT, phone && s0.resTPhone]}>🍪 {n.toLocaleString("ko-KR")}</Text>
+          <Text numberOfLines={1} style={[s0.resT, phone && s0.resTPhone]}>
+            🍪 {n.toLocaleString("ko-KR")}
+          </Text>
         </View>
         <View style={[s0.res, phone && s0.resPhone]}>
-          <Text numberOfLines={1} style={[s0.resT, phone && s0.resTPhone]}>🎟️ 148</Text>
+          <Text numberOfLines={1} style={[s0.resT, phone && s0.resTPhone]}>
+            🎟️ 148
+          </Text>
         </View>
         <View style={[s0.res, phone && s0.resPhone]}>
-          <Text numberOfLines={1} style={[s0.resT, phone && s0.resTPhone]}>💎 0</Text>
+          <Text numberOfLines={1} style={[s0.resT, phone && s0.resTPhone]}>
+            💎 0
+          </Text>
         </View>
         <View style={[s0.res, s0.cps, phone && s0.resPhone]}>
-          <Text numberOfLines={1} style={[s0.resT, phone && s0.resTPhone]}>⚡ CPS {Math.floor(cps).toLocaleString("ko-KR")}</Text>
+          <Text numberOfLines={1} style={[s0.resT, phone && s0.resTPhone]}>
+            ⚡ CPS {Math.floor(cps).toLocaleString("ko-KR")}
+          </Text>
         </View>
-        <View style={[s0.setting, phone && s0.settingPhone]}>
+        <Pressable
+          onPress={() => setTab(6)}
+          style={[s0.setting, phone && s0.settingPhone]}
+        >
           <Text>⚙️</Text>
-        </View>
+        </Pressable>
       </View>
       <View style={[s0.body, phone && s0.bodyPhone, tab !== 0 && s0.hidden]}>
         <View style={s0.off}>
           <View>
             <Text style={s0.offTitle}>오프라인 보상</Text>
-            <Text style={s0.offSub}>19분 36초 · +482,945,939</Text>
+            <Text style={s0.offSub}>
+              {game.pendingOffline
+                ? `돌아온 보상 · +${game.pendingOffline.toLocaleString("ko-KR")}`
+                : "오프라인 보상을 준비 중입니다"}
+            </Text>
           </View>
-          <Pressable style={s0.claim}>
+          <Pressable
+            disabled={!game.pendingOffline}
+            onPress={() => game.claimOffline()}
+            style={[s0.claim, !game.pendingOffline && s0.claimDisabled]}
+          >
             <Text style={s0.claimT}>받기</Text>
           </Pressable>
         </View>
         <View style={s0.board}>
           <View style={s0.statRow}>
-            <Stat a="클릭" b="+1,820" />
-            <Stat a="환생" b="x7.59" />
+            <Stat
+              a="클릭"
+              b={`+${Math.max(1, Math.floor((game.ovens.find((o) => o.ovenId === game.equippedOvenId)?.level || 1) * Math.pow(1.5, game.rebirths)))}`}
+            />
+            <Stat a="환생" b={`x${Math.pow(1.5, game.rebirths).toFixed(2)}`} />
           </View>
           <Text style={s0.work}>쿠키 작업대</Text>
           <View style={s0.play}>
             <View style={s0.left}>
               <Side e="📬" t="우편" />
               <Side e="📋" t="미션" />
-              <Side e="😇" t="환생" />
-              <Side e="🎲" t="확률" />
+              <Pressable onPress={() => setTab(5)} style={s0.side}>
+                <Text style={s0.sideE}>😇</Text>
+                <Text style={s0.sideT}>환생</Text>
+              </Pressable>
+              <Pressable onPress={() => setTab(1)} style={s0.side}>
+                <Text style={s0.sideE}>🎲</Text>
+                <Text style={s0.sideT}>확률</Text>
+              </Pressable>
             </View>
             <View style={s0.cookieZone}>
               <View style={s0.shadow} />
@@ -159,26 +207,31 @@ export default function App() {
               <Text style={s0.tap}>쿠키를 눌러 굽기</Text>
             </View>
             <View style={s0.right}>
-              <Stat compact a="뽑기 레벨" b="Lv.11" />
-              <Stat compact a="다음 부스트" b="없음" />
+              <Stat
+                compact
+                a="보유 오븐"
+                b={`${game.ovens.filter((o) => o.level > 0).length}종`}
+              />
+              <Stat compact a="초코칩" b={`${game.chocoChips}개`} />
               <Stat compact a="버프" b="대기" />
             </View>
           </View>
-          <View style={s0.promo}>
+          <Pressable onPress={() => setTab(1)} style={s0.promo}>
             <Text style={s0.promoE}>🎁</Text>
             <View>
-          <Text style={s0.promoT}>오늘의 오븐</Text>
-          <Text style={s0.promoS}>오늘의 오븐을 확인하세요</Text>
+              <Text style={s0.promoT}>오늘의 오븐</Text>
+              <Text style={s0.promoS}>오늘의 오븐을 확인하세요</Text>
             </View>
             <Text style={s0.arrow}>›</Text>
-          </View>
+          </Pressable>
         </View>
       </View>
       {tab === 1 && <DrawPage />}
       {tab === 2 && <InventoryPage />}
       {tab === 3 && <AutomationPage />}
       {tab === 4 && <ExchangePage />}
-      {tab > 4 && <View style={s0.coming}><Text style={s0.comingText}>준비 중인 기능입니다.</Text></View>}
+      {tab === 5 && <UpgradesPage />}
+      {tab === 6 && <AchievementsPage />}
       <View style={s0.dock}>
         {tabs.map((t, i) => (
           <Pressable
@@ -246,7 +299,12 @@ const s0 = StyleSheet.create({
   body: { flex: 1, padding: 22, gap: 13 },
   bodyPhone: { padding: 14, gap: 10 },
   hidden: { display: "none" },
-  coming: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: PAPER },
+  coming: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: PAPER,
+  },
   comingText: { fontSize: 18, fontWeight: "900", color: INK },
   off: {
     height: 118,
@@ -269,6 +327,7 @@ const s0 = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  claimDisabled: { opacity: 0.45 },
   claimT: { fontSize: 20, fontWeight: "900", color: INK },
   board: {
     flex: 1,
