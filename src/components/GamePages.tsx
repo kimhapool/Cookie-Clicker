@@ -85,6 +85,7 @@ export function DrawPage() {
   const [results, setResults] = useState<string[]>([]);
   const [flying, setFlying] = useState<string[]>([]);
   const [flightIndex, setFlightIndex] = useState(0);
+  const [secretPhase, setSecretPhase] = useState(2);
   const [showOdds, setShowOdds] = useState(false);
   const flyProgress = useRef(new Animated.Value(0)).current;
   const { width } = useWindowDimensions();
@@ -110,6 +111,11 @@ export function DrawPage() {
             setTimeout(() => flyNext(index + 1), 70);
           else {
             setFlying([]);
+            if (drawnIds.includes("oven-16")) {
+              setSecretPhase(0);
+              setTimeout(() => setSecretPhase(1), 700);
+              setTimeout(() => setSecretPhase(2), 1500);
+            }
             setResults(drawnIds);
           }
         });
@@ -219,7 +225,25 @@ export function DrawPage() {
             {hasSecret && (
               <>
                 <Text style={s.secretSlash}>╲ ╱ ╲ ╱ ╲ ╱</Text>
-                <Text style={s.secretCookie}>🍪</Text>
+                {secretPhase < 2 ? (
+                  <View style={s.secretFragments}>
+                    {Array.from({ length: 57 }, (_, index) => (
+                      <View
+                        key={index}
+                        style={[
+                          s.secretPiece,
+                          {
+                            left: `${(index * 37) % 92}%`,
+                            top: `${(index * 61) % 88}%`,
+                            opacity: secretPhase === 0 ? 0.9 : 0.35,
+                          },
+                        ]}
+                      />
+                    ))}
+                  </View>
+                ) : (
+                  <Text style={s.secretCookie}>🍪</Text>
+                )}
                 <Text style={s.secretSlash}>╱ ╲ ╱ ╲ ╱ ╲</Text>
               </>
             )}
@@ -455,7 +479,8 @@ export function InventoryPage() {
                 {oven.name}
               </Text>
               <Text style={s.info}>
-                보유 {owned.level}개 · 융합 {owned.fusion} (x{Math.pow(1.25, owned.fusion).toFixed(2)}) · 특성 {owned.trait}
+                보유 {owned.level}개 · 융합 {owned.fusion} (x
+                {Math.pow(1.25, owned.fusion).toFixed(2)}) · 특성 {owned.trait}
               </Text>
               <View style={s.row}>
                 <Button title="장착" onPress={() => game.equipOven(oven.id)} />
@@ -676,6 +701,23 @@ const s = StyleSheet.create({
     fontSize: 23,
     fontWeight: "900",
     letterSpacing: 5,
+  },
+  secretFragments: {
+    width: 170,
+    height: 170,
+    borderRadius: 85,
+    borderWidth: 3,
+    borderColor: "#ff4dcc",
+    overflow: "hidden",
+    backgroundColor: "#271037",
+  },
+  secretPiece: {
+    position: "absolute",
+    width: 12,
+    height: 12,
+    borderRadius: 3,
+    backgroundColor: "#f4b355",
+    transform: [{ rotate: "35deg" }],
   },
   flightShade: {
     flex: 1,
