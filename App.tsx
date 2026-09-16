@@ -18,6 +18,7 @@ import { useEffect, useRef, useState } from "react";
 import { getClickGain, getCps, useGameStore } from "./src/store/useGameStore";
 import { OVENS } from "./src/data/ovens";
 import { BUILDINGS } from "./src/data/buildings";
+import { labels } from "./src/i18n/translations";
 import {
   AchievementsPage,
   AutomationPage,
@@ -140,6 +141,7 @@ export default function App() {
     Math.max(100, height * 0.19),
   );
   const game = useGameStore();
+  const text = labels[game.settings.language ?? "ko"];
   const popPlayer = useAudioPlayer(require("./assets/audio/5D.wav"));
   const drumPlayer = useAudioPlayer(require("./assets/audio/MV.wav"));
   const bitePlayer = useAudioPlayer(require("./assets/audio/om.wav"));
@@ -232,13 +234,13 @@ export default function App() {
     }
   };
   const tabs = [
-    "🏠\n홈",
-    "🎰\n뽑기",
-    "🎒\n인벤토리",
-    "🏭\n자동화",
-    "💱\n교환",
-    "⚡\n강화",
-    "🏆\n도전과제",
+    `🏠\n${text.home}`,
+    `🎰\n${text.draw}`,
+    `🎒\n${text.inventory}`,
+    `🏭\n${text.automation}`,
+    `💱\n${text.exchange}`,
+    `⚡\n${text.upgrades}`,
+    `🏆\n${text.achievements}`,
   ];
   return (
     <SafeAreaView style={s0.safe}>
@@ -287,7 +289,7 @@ export default function App() {
       >
         <View style={[s0.off, short && s0.offShort]}>
           <View>
-            <Text style={s0.offTitle}>오프라인 보상</Text>
+            <Text style={s0.offTitle}>{text.offline}</Text>
             <Text style={s0.offSub}>
               {game.pendingOffline
                 ? `돌아온 보상 · +${game.pendingOffline.toLocaleString("ko-KR")}`
@@ -315,7 +317,7 @@ export default function App() {
             onPress={() => game.claimOffline()}
             style={[s0.claim, !game.pendingOffline && s0.claimDisabled]}
           >
-            <Text style={s0.claimT}>받기</Text>
+            <Text style={s0.claimT}>{text.claim}</Text>
           </Pressable>
         </View>
         <View style={[s0.board, short && s0.boardShort]}>
@@ -465,7 +467,7 @@ export default function App() {
               {lastGain > 0 && (
                 <Text style={s0.gain}>+{lastGain.toLocaleString("ko-KR")}</Text>
               )}
-              <Text style={s0.tap}>쿠키를 눌러 굽기</Text>
+              <Text style={s0.tap}>{text.tapCookie}</Text>
             </View>
             <View style={[s0.right, short && s0.rightShort]}>
               <Stat
@@ -494,7 +496,7 @@ export default function App() {
           >
             <Text style={s0.promoE}>🎁</Text>
             <View>
-              <Text style={s0.promoT}>오늘의 오븐</Text>
+              <Text style={s0.promoT}>{text.todayOven}</Text>
               <Text style={s0.promoS}>오늘의 오븐을 확인하세요</Text>
             </View>
             <Text style={s0.arrow}>›</Text>
