@@ -1,4 +1,12 @@
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import {
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
+import { useState } from "react";
 import { BUILDINGS } from "../data/buildings";
 import { OVENS, RARITY_COLORS } from "../data/ovens";
 import { useGameStore } from "../store/useGameStore";
@@ -42,9 +50,17 @@ function Page({
 
 export function DrawPage() {
   const game = useGameStore();
+  const [resultId, setResultId] = useState<string | null>(null);
   const draw = (premium = false, count = 1) => {
-    for (let i = 0; i < count; i += 1) if (!game.draw(premium)) break;
+    let result = null;
+    for (let i = 0; i < count; i += 1) {
+      const drawn = game.draw(premium);
+      if (!drawn) break;
+      result = drawn;
+    }
+    if (result) setResultId(result.id);
   };
+  const result = resultId ? OVENS.find((oven) => oven.id === resultId) : null;
   return (
     <Page title="🎰 오븐 뽑기">
       <View style={s.hero}>
@@ -75,6 +91,40 @@ export function DrawPage() {
           </Text>
         </View>
       ))}
+      <Modal
+        transparent
+        animationType="fade"
+        visible={!!result}
+        onRequestClose={() => setResultId(null)}
+      >
+        <View style={s.resultShade}>
+          {result && (
+            <View
+              style={[
+                s.resultCard,
+                { borderColor: RARITY_COLORS[result.rarity] },
+              ]}
+            >
+              <Text style={s.resultSparkle}>✦ ✦ ✦</Text>
+              <Text style={s.resultTitle}>새 오븐 획득!</Text>
+              <Text
+                style={[
+                  s.resultRarity,
+                  { color: RARITY_COLORS[result.rarity] },
+                ]}
+              >
+                {result.rarity}
+              </Text>
+              <Text style={s.resultOven}>🔥</Text>
+              <Text style={s.resultName}>{result.name}</Text>
+              <Text style={s.info}>
+                클릭 x{result.click} · 자동화 x{result.cps}
+              </Text>
+              <Button title="확인" onPress={() => setResultId(null)} />
+            </View>
+          )}
+        </View>
+      </Modal>
     </Page>
   );
 }
@@ -290,4 +340,31 @@ const s = StyleSheet.create({
   rarity: { fontWeight: "900" },
   done: { borderColor: "#d7a221" },
   locked: { opacity: 0.58 },
+  resultShade: {
+    flex: 1,
+    backgroundColor: "#241129bb",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 28,
+  },
+  resultCard: {
+    width: "100%",
+    maxWidth: 400,
+    alignItems: "center",
+    gap: 10,
+    padding: 26,
+    borderRadius: 30,
+    borderWidth: 5,
+    backgroundColor: "#fff8e9",
+  },
+  resultSparkle: { color: "#d7a221", fontSize: 24, letterSpacing: 5 },
+  resultTitle: { color: "#401923", fontSize: 22, fontWeight: "900" },
+  resultRarity: { fontSize: 17, fontWeight: "900" },
+  resultOven: { fontSize: 72 },
+  resultName: {
+    color: "#401923",
+    fontSize: 24,
+    textAlign: "center",
+    fontWeight: "900",
+  },
 });

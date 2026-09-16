@@ -235,14 +235,19 @@ export default function App() {
       {tab === 4 && <ExchangePage />}
       {tab === 5 && <UpgradesPage />}
       {tab === 6 && <AchievementsPage />}
-      <View style={s0.dock}>
+      <View style={[s0.dock, phone && s0.dockPhone]}>
         {tabs.map((t, i) => (
           <Pressable
             key={t}
             onPress={() => setTab(i)}
-            style={[s0.tab, tab === i && s0.active]}
+            style={[s0.tab, phone && s0.tabPhone, tab === i && s0.active]}
           >
-            <Text style={[s0.tabT, tab === i && s0.activeT]}>{t}</Text>
+            <Text
+              numberOfLines={2}
+              style={[s0.tabT, phone && s0.tabTPhone, tab === i && s0.activeT]}
+            >
+              {t}
+            </Text>
           </Pressable>
         ))}
       </View>
@@ -537,6 +542,7 @@ const s0 = StyleSheet.create({
     flexDirection: "row",
     gap: 10,
   },
+  dockPhone: { height: 108, padding: 7, gap: 4 },
   tab: {
     flex: 1,
     borderRadius: 17,
@@ -546,6 +552,7 @@ const s0 = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  tabPhone: { borderRadius: 13 },
   active: { backgroundColor: GOLD },
   tabT: {
     fontSize: 13,
@@ -554,5 +561,6 @@ const s0 = StyleSheet.create({
     fontWeight: "900",
     color: "white",
   },
+  tabTPhone: { fontSize: 9, lineHeight: 17 },
   activeT: { color: INK },
 });
