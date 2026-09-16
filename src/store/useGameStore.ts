@@ -4,6 +4,7 @@ import { createJSONStorage, persist } from "zustand/middleware";
 import { BUILDINGS } from "../data/buildings";
 import { OVENS, type Oven, type Rarity } from "../data/ovens";
 import { UPGRADES } from "../data/upgrades";
+import type { MissionId } from "../data/missions";
 
 export type Trait = "없음" | "샤이니" | "반전" | "글리치";
 export type Epirus =
@@ -69,7 +70,7 @@ type Game = {
   buyUpgrade(id: "click" | "cps" | "global"): boolean;
   updateSettings(value: Partial<Settings>): void;
   claimMail(id: string): boolean;
-  claimMission(id: string): boolean;
+  claimMission(id: MissionId): boolean;
   advanceTutorial(): void;
   ensureAllOvens(): void;
   resetGame(): void;
@@ -479,10 +480,18 @@ export const useGameStore = create<Game>()(
       claimMission: (id) => {
         const state = get();
         if (state.claimedMissions.includes(id)) return false;
-        const rewards: Record<string, { cookies?: number; chips?: number }> = {
+        const rewards: Record<
+          MissionId,
+          { cookies?: number; chips?: number; premium?: number; dictionary?: number }
+        > = {
           tap: { cookies: 500 },
-          building: { chips: 2 },
+          stockpile: { chips: 2 },
+          building: { chips: 3 },
           chip: { cookies: 2000 },
+          draw: { chips: 3 },
+          upgrade: { cookies: 4000 },
+          rebirth: { premium: 1 },
+          lifetime: { dictionary: 1 },
         };
         const reward = rewards[id];
         if (!reward) return false;
@@ -490,6 +499,8 @@ export const useGameStore = create<Game>()(
           cookies: state.cookies + (reward.cookies ?? 0),
           totalCookies: state.totalCookies + (reward.cookies ?? 0),
           chocoChips: state.chocoChips + (reward.chips ?? 0),
+          premiumChips: state.premiumChips + (reward.premium ?? 0),
+          dictionaries: state.dictionaries + (reward.dictionary ?? 0),
           claimedMissions: [...state.claimedMissions, id],
         });
         return true;

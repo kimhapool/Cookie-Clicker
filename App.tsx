@@ -18,6 +18,7 @@ import { useEffect, useRef, useState } from "react";
 import { getClickGain, getCps, useGameStore } from "./src/store/useGameStore";
 import { OVENS } from "./src/data/ovens";
 import { BUILDINGS } from "./src/data/buildings";
+import { MISSIONS, type MissionId } from "./src/data/missions";
 import { labels } from "./src/i18n/translations";
 import { compactNumber } from "./src/utils/numbers";
 import {
@@ -614,37 +615,31 @@ export default function App() {
                     </View>
                   );
                 })
-              : [
-                  ["tap", "쿠키 100회 굽기", game.taps, 100, "쿠키 500개"],
-                  [
-                    "chip",
-                    "초코칩 20개 모으기",
-                    game.chocoChips,
-                    20,
-                    "쿠키 2,000개",
-                  ],
-                  [
-                    "building",
-                    "자동화 오븐 1개 구매",
-                    Object.values(game.buildings).reduce((a, b) => a + b, 0),
-                    1,
-                    "초코칩 2개",
-                  ],
-                ].map(([id, title, current, target, reward]) => {
-                  const missionId = String(id);
-                  const value = Number(current);
-                  const goal = Number(target);
+              : MISSIONS.map((mission) => {
+                  const missionProgress: Record<MissionId, number> = {
+                    tap: game.taps,
+                    stockpile: game.cookies,
+                    building: Object.values(game.buildings).reduce((a, b) => a + b, 0),
+                    chip: game.chocoChips,
+                    draw: game.totalDraws,
+                    upgrade: Object.values(game.upgrades).reduce((a, b) => a + b, 0),
+                    rebirth: game.rebirths,
+                    lifetime: game.totalCookies,
+                  };
+                  const missionId = mission.id;
+                  const value = missionProgress[missionId];
+                  const goal = mission.target;
                   const done = value >= goal;
                   const claimed = game.claimedMissions.includes(missionId);
                   return (
-                    <View key={String(title)} style={s0.mailRow}>
+                    <View key={missionId} style={s0.mailRow}>
                       <View>
                         <Text style={s0.mailTitle}>
                           {done ? "✅ " : "🎯 "}
-                          {title}
+                          {mission.title}
                         </Text>
                         <Text style={s0.mailSub}>
-                          {value}/{goal} · 보상 {reward}
+                          {value}/{goal} · 보상 {mission.reward}
                         </Text>
                         <View style={s0.missionTrack}>
                           <View
