@@ -11,6 +11,7 @@ import {
 import { useRef, useState } from "react";
 import * as Haptics from "expo-haptics";
 import { BUILDINGS } from "../data/buildings";
+import { UPGRADES } from "../data/upgrades";
 import { OVENS, RARITY_COLORS } from "../data/ovens";
 import { useGameStore } from "../store/useGameStore";
 
@@ -499,6 +500,26 @@ export function UpgradesPage() {
         <Text style={s.cardTitle}>🍪 달콤한 부스트</Text>
         <Text style={s.info}>부스트는 홈 화면에서 사용하실 수 있습니다.</Text>
       </View>
+      <Text style={s.section}>영구 강화</Text>
+      {UPGRADES.map((upgrade) => {
+        const level = game.upgrades[upgrade.id];
+        const cost = Math.floor(
+          upgrade.baseCost * Math.pow(upgrade.growth, level),
+        );
+        return (
+          <View key={upgrade.id} style={s.card}>
+            <Text style={s.cardTitle}>
+              {upgrade.emoji} {upgrade.name} · Lv.{level}
+            </Text>
+            <Text style={s.info}>{upgrade.description}</Text>
+            <Button
+              title={`${fmt(cost)} 쿠키로 강화`}
+              disabled={game.cookies < cost}
+              onPress={() => game.buyUpgrade(upgrade.id)}
+            />
+          </View>
+        );
+      })}
       <View style={s.card}>
         <Text style={s.cardTitle}>🏭 생산 강화</Text>
         <Text style={s.info}>자동화 오븐을 늘려 초당 생산량을 올리세요.</Text>

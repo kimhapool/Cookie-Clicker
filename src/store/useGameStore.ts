@@ -3,6 +3,7 @@ import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import { BUILDINGS } from "../data/buildings";
 import { OVENS, type Oven, type Rarity } from "../data/ovens";
+import { UPGRADES } from "../data/upgrades";
 
 export type Trait = "없음" | "샤이니" | "반전" | "글리치";
 export type Epirus =
@@ -36,6 +37,7 @@ type Game = {
   diaries: number;
   epirus: Record<Epirus, number>;
   settings: Settings;
+  upgrades: Record<"click" | "cps" | "global", number>;
   rebirths: number;
   buildings: Record<string, number>;
   ovens: OwnedOven[];
@@ -64,6 +66,7 @@ type Game = {
   dismantleOven(id: string): boolean;
   rollTrait(id: string): boolean;
   activateBoost(multiplier: 2 | 4): boolean;
+  buyUpgrade(id: "click" | "cps" | "global"): boolean;
   updateSettings(value: Partial<Settings>): void;
   claimMail(id: string): boolean;
   claimMission(id: string): boolean;
@@ -113,6 +116,7 @@ const baseState = () => ({
   diaries: 0,
   epirus: { aurora: 0, opternal: 0, twilight: 0, phoenix: 0, infinity: 0 },
   settings: defaultSettings,
+  upgrades: { click: 0, cps: 0, global: 0 },
   rebirths: 0,
   buildings: emptyBuildings(),
   ovens: allOvens(),
@@ -147,7 +151,12 @@ const activeBoost = (state: Pick<Game, "boostUntil" | "boostMultiplier">) =>
 export const getClickGain = (
   state: Pick<
     Game,
-    "equippedOvenId" | "ovens" | "rebirths" | "boostUntil" | "boostMultiplier"
+    | "equippedOvenId"
+    | "ovens"
+    | "rebirths"
+    | "boostUntil"
+    | "boostMultiplier"
+    | "upgrades"
   >,
 ) =>
   Math.max(
@@ -156,7 +165,9 @@ export const getClickGain = (
       equipped(state).click *
         traitMultiplier(equippedTrait(state)) *
         Math.pow(1.5, state.rebirths) *
-        activeBoost(state),
+        activeBoost(state) *
+        Math.pow(1.2, state.upgrades.click) *
+        Math.pow(1.1, state.upgrades.global),
     ),
   );
 export const getCps = (
@@ -168,6 +179,7 @@ export const getCps = (
     | "rebirths"
     | "boostUntil"
     | "boostMultiplier"
+    | "upgrades"
   >,
 ) =>
   BUILDINGS.reduce(
@@ -178,7 +190,9 @@ export const getCps = (
   equipped(state).cps *
   traitMultiplier(equippedTrait(state)) *
   Math.pow(1.5, state.rebirths) *
-  activeBoost(state);
+  activeBoost(state) *
+  Math.pow(1.25, state.upgrades.cps) *
+  Math.pow(1.1, state.upgrades.global);
 const buildingCost = (id: string, count: number) =>
   Math.floor(
     BUILDINGS.find((building) => building.id === id)!.baseCost *
@@ -418,6 +432,20 @@ export const useGameStore = create<Game>()(
         });
         return true;
       },
+      buyUpgrade: (id) => {
+        const state = get();
+        const upgrade = UPGRADES.find((item) => item.id === id)!;
+        const level = state.upgrades[id];
+        const cost = Math.floor(
+          upgrade.baseCost * Math.pow(upgrade.growth, level),
+        );
+        if (state.cookies < cost) return false;
+        set({
+          cookies: state.cookies - cost,
+          upgrades: { ...state.upgrades, [id]: level + 1 },
+        });
+        return true;
+      },
       updateSettings: (value) =>
         set((state) => ({ settings: { ...state.settings, ...value } })),
       claimMail: (id) => {
@@ -534,6 +562,7 @@ export const useGameStore = create<Game>()(
           dismantleOven,
           rollTrait,
           activateBoost,
+          buyUpgrade,
           updateSettings,
           claimMail,
           claimMission,
