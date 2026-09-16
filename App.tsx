@@ -310,7 +310,10 @@ export default function App() {
           </Text>
         </View>
         <Pressable
-          onPress={() => setSettingsOpen(true)}
+          onPress={() => {
+            setResetStage(0);
+            setSettingsOpen(true);
+          }}
           style={[s0.setting, phone && s0.settingPhone]}
         >
           <Text>⚙️</Text>
@@ -831,7 +834,10 @@ export default function App() {
               </Text>
             </Pressable>
             <Pressable
-              onPress={() => setSettingsOpen(false)}
+              onPress={() => {
+                setResetStage(0);
+                setSettingsOpen(false);
+              }}
               style={s0.closeButton}
             >
               <Text style={s0.closeText}>닫기</Text>
