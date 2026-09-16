@@ -24,6 +24,7 @@ type Game = {
   premiumChips: number;
   dictionaries: number;
   diaries: number;
+  claimedMail: string[];
   settings: Settings;
   rebirths: number;
   buildings: Record<string, number>;
@@ -39,6 +40,7 @@ type Game = {
   draw(premium?: boolean): Oven | null;
   equipOven(id: string): boolean;
   updateSettings(value: Partial<Settings>): void;
+  claimMail(id: string): boolean;
   checkOffline(): void;
   claimOffline(): number;
   tick(seconds: number): void;
@@ -72,6 +74,7 @@ export const useGameStore = create<Game>()(
       premiumChips: 0,
       dictionaries: 0,
       diaries: 0,
+      claimedMail: [],
       settings: { sound: true, music: true, vibration: true, language: "ko" },
       rebirths: 0,
       buildings: initialBuildings,
@@ -159,6 +162,17 @@ export const useGameStore = create<Game>()(
       },
       updateSettings: (value) =>
         set((s) => ({ settings: { ...s.settings, ...value } })),
+      claimMail: (id) => {
+        const s = get();
+        if (s.claimedMail.includes(id)) return false;
+        const reward = id === "welcome" ? 500 : id === "chips" ? 3 : 2500;
+        set({
+          cookies: s.cookies + reward,
+          totalCookies: s.totalCookies + reward,
+          claimedMail: [...s.claimedMail, id],
+        });
+        return true;
+      },
       checkOffline: () => {
         const s = get();
         const seconds = Math.min(
@@ -203,6 +217,7 @@ export const useGameStore = create<Game>()(
         draw: undefined,
         equipOven: undefined,
         updateSettings: undefined,
+        claimMail: undefined,
         checkOffline: undefined,
         claimOffline: undefined,
         tick: undefined,

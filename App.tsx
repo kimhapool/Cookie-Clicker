@@ -92,9 +92,17 @@ function Stat({
     </View>
   );
 }
-function Side({ e, t }: { e: string; t: string }) {
+function Side({
+  e,
+  t,
+  onPress,
+}: {
+  e: string;
+  t: string;
+  onPress?: () => void;
+}) {
   return (
-    <Pressable style={s0.side}>
+    <Pressable onPress={onPress} style={s0.side}>
       <Text style={s0.sideE}>{e}</Text>
       <Text style={s0.sideT}>{t}</Text>
     </Pressable>
@@ -103,6 +111,7 @@ function Side({ e, t }: { e: string; t: string }) {
 export default function App() {
   const [tab, setTab] = useState(0);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [panel, setPanel] = useState<"mail" | "missions" | null>(null);
   const { width } = useWindowDimensions();
   const phone = width < 500;
   const game = useGameStore();
@@ -193,8 +202,8 @@ export default function App() {
           <Text style={s0.work}>쿠키 작업대</Text>
           <View style={s0.play}>
             <View style={s0.left}>
-              <Side e="📬" t="우편" />
-              <Side e="📋" t="미션" />
+              <Side e="📬" t="우편" onPress={() => setPanel("mail")} />
+              <Side e="📋" t="미션" onPress={() => setPanel("missions")} />
               <Pressable onPress={() => setTab(5)} style={s0.side}>
                 <Text style={s0.sideE}>😇</Text>
                 <Text style={s0.sideT}>환생</Text>
@@ -251,6 +260,71 @@ export default function App() {
           </Pressable>
         ))}
       </View>
+      <Modal
+        transparent
+        animationType="slide"
+        visible={!!panel}
+        onRequestClose={() => setPanel(null)}
+      >
+        <View style={s0.modalShade}>
+          <View style={s0.modalCard}>
+            <Text style={s0.modalTitle}>
+              {panel === "mail" ? "📬 우편함" : "📋 오늘의 미션"}
+            </Text>
+            {panel === "mail"
+              ? [
+                  ["welcome", "베이커리 개업 선물", "쿠키 500개"],
+                  ["chips", "초코칩 꾸러미", "쿠키 3,000개"],
+                  ["moon", "달빛 배송", "쿠키 2,500개"],
+                ].map(([id, title, reward]) => {
+                  const claimed = game.claimedMail.includes(id);
+                  return (
+                    <View key={id} style={s0.mailRow}>
+                      <View>
+                        <Text style={s0.mailTitle}>{title}</Text>
+                        <Text style={s0.mailSub}>{reward}</Text>
+                      </View>
+                      <Pressable
+                        disabled={claimed}
+                        onPress={() => game.claimMail(id)}
+                        style={[s0.mailButton, claimed && s0.claimDisabled]}
+                      >
+                        <Text style={s0.languageText}>
+                          {claimed ? "받음" : "받기"}
+                        </Text>
+                      </Pressable>
+                    </View>
+                  );
+                })
+              : [
+                  ["쿠키 100회 굽기", `${game.taps}/100`, game.taps >= 100],
+                  [
+                    "초코칩 20개 모으기",
+                    `${game.chocoChips}/20`,
+                    game.chocoChips >= 20,
+                  ],
+                  [
+                    "자동화 오븐 구매",
+                    `${Object.values(game.buildings).reduce((a, b) => a + b, 0)}/1`,
+                    Object.values(game.buildings).some(Boolean),
+                  ],
+                ].map(([title, progress, done]) => (
+                  <View key={String(title)} style={s0.mailRow}>
+                    <View>
+                      <Text style={s0.mailTitle}>
+                        {done ? "✅ " : "🎯 "}
+                        {title}
+                      </Text>
+                      <Text style={s0.mailSub}>{progress}</Text>
+                    </View>
+                  </View>
+                ))}
+            <Pressable onPress={() => setPanel(null)} style={s0.closeButton}>
+              <Text style={s0.closeText}>닫기</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
       <Modal
         transparent
         animationType="fade"
@@ -417,6 +491,25 @@ const s0 = StyleSheet.create({
     minHeight: 46,
   },
   settingLabel: { fontSize: 17, fontWeight: "800", color: INK },
+  mailRow: {
+    minHeight: 62,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "#fffdf8",
+    borderRadius: 14,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: "#eadabb",
+  },
+  mailTitle: { fontSize: 16, fontWeight: "900", color: INK },
+  mailSub: { fontSize: 13, fontWeight: "700", color: "#746359", marginTop: 3 },
+  mailButton: {
+    backgroundColor: "#ffca45",
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    borderRadius: 12,
+  },
   languageButton: {
     backgroundColor: "#ffca45",
     paddingHorizontal: 14,
