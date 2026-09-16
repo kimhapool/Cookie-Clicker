@@ -13,6 +13,33 @@ import { OVENS, RARITY_COLORS } from "../data/ovens";
 import { useGameStore } from "../store/useGameStore";
 
 const fmt = (value: number) => Math.floor(value).toLocaleString("ko-KR");
+const BASIC_WEIGHT = {
+  Common: 45,
+  Uncommon: 25,
+  Rare: 14,
+  Epic: 8,
+  Legendary: 4.4,
+  Mythic: 2,
+  Eternal: 1,
+  Celestial: 0.55,
+  Secret: 0.0329,
+} as const;
+const PREMIUM_WEIGHT = {
+  Common: 8,
+  Uncommon: 13,
+  Rare: 19,
+  Epic: 20,
+  Legendary: 17,
+  Mythic: 12,
+  Eternal: 7,
+  Celestial: 3.5,
+  Secret: 0.329,
+} as const;
+const ovenChance = (rarity: keyof typeof BASIC_WEIGHT, premium: boolean) => {
+  const table = premium ? PREMIUM_WEIGHT : BASIC_WEIGHT;
+  const total = Object.values(table).reduce((sum, value) => sum + value, 0);
+  return `${((table[rarity] / total) * 100).toFixed(rarity === "Secret" ? 4 : 2)}%`;
+};
 
 function Button({
   title,
@@ -76,6 +103,7 @@ export function DrawPage() {
   const selected = game.ovens.find(
     (oven) => oven.ovenId === game.equippedOvenId,
   )!;
+  const hasSecret = results.includes("oven-16");
   return (
     <Page title="🎰 오븐 뽑기">
       <View style={s.hero}>
@@ -158,8 +186,15 @@ export function DrawPage() {
         visible={results.length > 0}
         onRequestClose={() => setResults([])}
       >
-        <View style={s.resultShade}>
-          <View style={s.resultCard}>
+        <View style={[s.resultShade, hasSecret && s.secretShade]}>
+          <View style={[s.resultCard, hasSecret && s.secretCard]}>
+            {hasSecret && (
+              <>
+                <Text style={s.secretSlash}>╲ ╱ ╲ ╱ ╲ ╱</Text>
+                <Text style={s.secretCookie}>🍪</Text>
+                <Text style={s.secretSlash}>╱ ╲ ╱ ╲ ╱ ╲</Text>
+              </>
+            )}
             <Text style={s.resultSparkle}>✦ ✦ ✦</Text>
             <Text style={s.resultTitle}>{results.length}회 뽑기 결과</Text>
             {Object.entries(grouped).map(([id, count]) => {
@@ -195,7 +230,9 @@ export function DrawPage() {
               <View key={oven.id} style={s.oddsRow}>
                 <Text style={s.ovenName}>{oven.name}</Text>
                 <Text style={[s.rarity, { color: RARITY_COLORS[oven.rarity] }]}>
-                  {oven.rarity === "Secret" ? "???" : oven.rarity}
+                  {oven.rarity === "Secret"
+                    ? "???"
+                    : `${oven.rarity} · ${ovenChance(oven.rarity, mode === "premium")}`}
                 </Text>
               </View>
             ))}
@@ -514,5 +551,18 @@ const s = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     gap: 8,
+  },
+  secretShade: { backgroundColor: "#050308" },
+  secretCard: { backgroundColor: "#120820", borderColor: "#ff4dcc" },
+  secretCookie: {
+    fontSize: 90,
+    textShadowColor: "#ff4dcc",
+    textShadowRadius: 26,
+  },
+  secretSlash: {
+    color: "#ff63e8",
+    fontSize: 23,
+    fontWeight: "900",
+    letterSpacing: 5,
   },
 });
