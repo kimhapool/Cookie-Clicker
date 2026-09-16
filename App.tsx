@@ -1,7 +1,9 @@
 import { StatusBar } from "expo-status-bar";
 import * as Haptics from "expo-haptics";
 import { useAudioPlayer } from "expo-audio";
+import { LinearGradient } from "expo-linear-gradient";
 import {
+  Animated,
   Image,
   Modal,
   Pressable,
@@ -12,7 +14,7 @@ import {
   View,
   useWindowDimensions,
 } from "react-native";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { getClickGain, getCps, useGameStore } from "./src/store/useGameStore";
 import { OVENS } from "./src/data/ovens";
 import {
@@ -124,9 +126,18 @@ export default function App() {
   const [panel, setPanel] = useState<"mail" | "missions" | null>(null);
   const [resetStage, setResetStage] = useState(0);
   const [lastGain, setLastGain] = useState(0);
+  const [tapStage, setTapStage] = useState(0);
+  const tapTimes = useRef<number[]>([]);
+  const ripple = useRef(new Animated.Value(0)).current;
+  const bite = useRef(new Animated.Value(0)).current;
   const { width, height } = useWindowDimensions();
   const phone = width < 500;
   const short = height < 820;
+  const cookieSize = Math.min(
+    190,
+    Math.max(100, width * 0.285),
+    Math.max(100, height * 0.19),
+  );
   const game = useGameStore();
   const popPlayer = useAudioPlayer(require("./assets/audio/5D.wav"));
   const drumPlayer = useAudioPlayer(require("./assets/audio/MV.wav"));
@@ -153,8 +164,36 @@ export default function App() {
   }, [game.settings.music, musicPlayer]);
   const tapCookie = () => {
     const gain = game.click();
+    const now = Date.now();
+    tapTimes.current = [
+      ...tapTimes.current.filter((time) => now - time < 850),
+      now,
+    ];
+    setTapStage(
+      tapTimes.current.length >= 15
+        ? 3
+        : tapTimes.current.length >= 8
+          ? 2
+          : tapTimes.current.length >= 3
+            ? 1
+            : 0,
+    );
     setLastGain(gain);
     setTimeout(() => setLastGain(0), 700);
+    ripple.setValue(0);
+    bite.setValue(0);
+    Animated.parallel([
+      Animated.timing(ripple, {
+        toValue: 1,
+        duration: 560,
+        useNativeDriver: true,
+      }),
+      Animated.timing(bite, {
+        toValue: 1,
+        duration: 280,
+        useNativeDriver: true,
+      }),
+    ]).start();
     if (game.settings.vibration)
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(
         () => undefined,
@@ -309,7 +348,84 @@ export default function App() {
             </View>
             <View style={s0.cookieZone}>
               <View style={s0.shadow} />
-              <Cookie onPress={tapCookie} />
+              <View
+                style={[
+                  s0.cookieStage,
+                  { width: cookieSize + 22, height: cookieSize + 22 },
+                ]}
+              >
+                {tapStage > 0 && (
+                  <LinearGradient
+                    colors={
+                      tapStage === 3
+                        ? ["#ff4dcc", "#ffca45", "#35b9ff", "#9e62ff"]
+                        : tapStage === 2
+                          ? ["#ff9b46", "#d34b71"]
+                          : ["#ffcf52", "#ff8a4a"]
+                    }
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={s0.tapAura}
+                  />
+                )}
+                <Animated.View
+                  pointerEvents="none"
+                  style={[
+                    s0.ripple,
+                    {
+                      opacity: ripple.interpolate({
+                        inputRange: [0, 0.1, 1],
+                        outputRange: [0, 0.72, 0],
+                      }),
+                      transform: [
+                        {
+                          scale: ripple.interpolate({
+                            inputRange: [0, 1],
+                            outputRange: [0.7, 1.55],
+                          }),
+                        },
+                      ],
+                    },
+                  ]}
+                />
+                <Cookie onPress={tapCookie} />
+                <Animated.View
+                  pointerEvents="none"
+                  style={[
+                    s0.bite,
+                    {
+                      opacity: bite.interpolate({
+                        inputRange: [0, 0.18, 1],
+                        outputRange: [0, 1, 0],
+                      }),
+                      transform: [
+                        {
+                          scale: bite.interpolate({
+                            inputRange: [0, 0.18, 1],
+                            outputRange: [0.3, 1, 1.15],
+                          }),
+                        },
+                      ],
+                    },
+                  ]}
+                />
+                {lastGain > 0 && (
+                  <>
+                    <View
+                      pointerEvents="none"
+                      style={[s0.crumb, s0.crumbOne]}
+                    />
+                    <View
+                      pointerEvents="none"
+                      style={[s0.crumb, s0.crumbTwo]}
+                    />
+                    <View
+                      pointerEvents="none"
+                      style={[s0.crumb, s0.crumbThree]}
+                    />
+                  </>
+                )}
+              </View>
               {lastGain > 0 && (
                 <Text style={s0.gain}>+{lastGain.toLocaleString("ko-KR")}</Text>
               )}
@@ -986,6 +1102,41 @@ const s0 = StyleSheet.create({
   sideE: { fontSize: 20 },
   sideT: { fontSize: 12, fontWeight: "900", color: INK },
   cookieZone: { flex: 1, alignItems: "center", justifyContent: "center" },
+  cookieStage: {
+    alignItems: "center",
+    justifyContent: "center",
+    position: "relative",
+  },
+  tapAura: { position: "absolute", inset: 0, borderRadius: 999, opacity: 0.78 },
+  ripple: {
+    position: "absolute",
+    width: "86%",
+    height: "86%",
+    borderRadius: 999,
+    borderWidth: 5,
+    borderColor: "#fff4ae",
+  },
+  bite: {
+    position: "absolute",
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: BOARD,
+    right: -2,
+    top: 7,
+    zIndex: 3,
+  },
+  crumb: {
+    position: "absolute",
+    width: 9,
+    height: 9,
+    borderRadius: 9,
+    backgroundColor: "#a95718",
+    zIndex: 4,
+  },
+  crumbOne: { top: 12, left: 5 },
+  crumbTwo: { bottom: 15, right: 5, width: 7, height: 7 },
+  crumbThree: { top: "50%", left: -3, width: 6, height: 6 },
   gain: {
     position: "absolute",
     top: 3,
