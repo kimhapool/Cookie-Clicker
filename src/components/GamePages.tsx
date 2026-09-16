@@ -1,12 +1,14 @@
 import {
+  Animated,
   Modal,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   View,
+  useWindowDimensions,
 } from "react-native";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import * as Haptics from "expo-haptics";
 import { BUILDINGS } from "../data/buildings";
 import { OVENS, RARITY_COLORS } from "../data/ovens";
@@ -80,7 +82,11 @@ export function DrawPage() {
   const game = useGameStore();
   const [mode, setMode] = useState<"basic" | "premium" | "trait">("basic");
   const [results, setResults] = useState<string[]>([]);
+  const [flying, setFlying] = useState<string[]>([]);
+  const [flightIndex, setFlightIndex] = useState(0);
   const [showOdds, setShowOdds] = useState(false);
+  const flyProgress = useRef(new Animated.Value(0)).current;
+  const { width } = useWindowDimensions();
   const draw = (premium = false, count = 1) => {
     const drawnIds: string[] = [];
     for (let i = 0; i < count; i += 1) {
@@ -89,7 +95,25 @@ export function DrawPage() {
       drawnIds.push(drawn.id);
     }
     if (drawnIds.length) {
-      setResults(drawnIds);
+      setResults([]);
+      setFlying(drawnIds);
+      const flyNext = (index: number) => {
+        setFlightIndex(index);
+        flyProgress.setValue(0);
+        Animated.timing(flyProgress, {
+          toValue: 1,
+          duration: 420,
+          useNativeDriver: true,
+        }).start(() => {
+          if (index + 1 < drawnIds.length)
+            setTimeout(() => flyNext(index + 1), 70);
+          else {
+            setFlying([]);
+            setResults(drawnIds);
+          }
+        });
+      };
+      flyNext(0);
       if (game.settings.vibration)
         Haptics.notificationAsync(
           Haptics.NotificationFeedbackType.Success,
@@ -104,6 +128,9 @@ export function DrawPage() {
     (oven) => oven.ovenId === game.equippedOvenId,
   )!;
   const hasSecret = results.includes("oven-16");
+  const flyingOven = flying.length
+    ? OVENS.find((oven) => oven.id === flying[flightIndex])
+    : null;
   return (
     <Page title="🎰 오븐 뽑기">
       <View style={s.hero}>
@@ -213,6 +240,54 @@ export function DrawPage() {
             })}
             <Button title="확인" onPress={() => setResults([])} />
           </View>
+        </View>
+      </Modal>
+      <Modal transparent animationType="fade" visible={!!flyingOven}>
+        <View style={s.flightShade}>
+          {flyingOven && (
+            <Animated.View
+              style={[
+                s.flightOven,
+                {
+                  borderColor: RARITY_COLORS[flyingOven.rarity],
+                  opacity: flyProgress.interpolate({
+                    inputRange: [0, 0.08, 0.9, 1],
+                    outputRange: [0, 1, 1, 0],
+                  }),
+                  transform: [
+                    {
+                      translateX: flyProgress.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [-width * 0.72, width * 0.72],
+                      }),
+                    },
+                    {
+                      rotate: flyProgress.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: ["-25deg", "300deg"],
+                      }),
+                    },
+                  ],
+                },
+              ]}
+            >
+              <Text
+                style={[
+                  s.flightOrb,
+                  { color: RARITY_COLORS[flyingOven.rarity] },
+                ]}
+              >
+                ✦
+              </Text>
+              <Text style={s.flightEmoji}>🔥</Text>
+              <Text style={s.flightName}>{flyingOven.name}</Text>
+              <Text
+                style={[s.rarity, { color: RARITY_COLORS[flyingOven.rarity] }]}
+              >
+                {flyingOven.rarity}
+              </Text>
+            </Animated.View>
+          )}
         </View>
       </Modal>
       <Modal
@@ -580,5 +655,31 @@ const s = StyleSheet.create({
     fontSize: 23,
     fontWeight: "900",
     letterSpacing: 5,
+  },
+  flightShade: {
+    flex: 1,
+    backgroundColor: "#090a25",
+    justifyContent: "center",
+    overflow: "hidden",
+  },
+  flightOven: {
+    width: 220,
+    alignSelf: "center",
+    alignItems: "center",
+    padding: 18,
+    borderRadius: 28,
+    borderWidth: 4,
+    backgroundColor: "#18133f",
+    shadowColor: "#fff",
+    shadowOpacity: 0.7,
+    shadowRadius: 18,
+  },
+  flightOrb: { position: "absolute", left: -35, top: -30, fontSize: 78 },
+  flightEmoji: { fontSize: 60 },
+  flightName: {
+    color: "#fff",
+    textAlign: "center",
+    fontSize: 17,
+    fontWeight: "900",
   },
 });
