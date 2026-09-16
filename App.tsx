@@ -29,7 +29,7 @@ import {
   UpgradesPage,
 } from "./src/components/GamePages";
 
-const WINE = "#850019",
+const WINE = "#dbc3a0",
   PAPER = "#f8eed7",
   BOARD = "#e7f4ff",
   GOLD = "#ffca45",
@@ -44,7 +44,7 @@ function Cookie({
   const { width, height } = useWindowDimensions();
   const s = small
     ? 54
-    : Math.min(190, Math.max(100, width * 0.285), Math.max(100, height * 0.19));
+    : Math.min(190, Math.max(124, width * 0.46), Math.max(124, height * 0.19));
   if (!small)
     return (
       <Pressable onPress={onPress} style={{ width: s, height: s }}>
@@ -130,6 +130,7 @@ export default function App() {
   const [resetStage, setResetStage] = useState(0);
   const [lastGain, setLastGain] = useState(0);
   const [achievementToast, setAchievementToast] = useState<string | null>(null);
+  const [automationGain, setAutomationGain] = useState(0);
   const [clock, setClock] = useState(Date.now());
   const [tapStage, setTapStage] = useState(0);
   const tapTimes = useRef<number[]>([]);
@@ -141,8 +142,8 @@ export default function App() {
   const short = height < 820;
   const cookieSize = Math.min(
     190,
-    Math.max(100, width * 0.285),
-    Math.max(100, height * 0.19),
+    Math.max(124, width * 0.46),
+    Math.max(124, height * 0.19),
   );
   const game = useGameStore();
   const text = labels[game.settings.language ?? "ko"];
@@ -167,7 +168,7 @@ export default function App() {
           ? game.totalDraws >= 1
           : true;
   useEffect(() => {
-    const timer = setInterval(() => game.tick(1), 1000);
+    const timer = setInterval(() => { const gain = game.tick(1); if (gain) { setAutomationGain(gain); setTimeout(() => setAutomationGain(0), 700); } }, 1000);
     return () => clearInterval(timer);
   }, [game.tick]);
   useEffect(() => {
@@ -336,22 +337,6 @@ export default function App() {
                 : "오프라인 보상을 준비 중입니다"}
             </Text>
           </View>
-          {BUILDINGS.some(
-            (building) => (game.buildings[building.id] || 0) > 0,
-          ) && (
-            <View style={s0.automationStrip}>
-              {BUILDINGS.filter(
-                (building) => (game.buildings[building.id] || 0) > 0,
-              ).map((building) => (
-                <View key={building.id} style={s0.automationIcon}>
-                  <Text style={s0.automationEmoji}>{building.emoji}</Text>
-                  <Text style={s0.automationCount}>
-                    ×{game.buildings[building.id]}
-                  </Text>
-                </View>
-              ))}
-            </View>
-          )}
           <Pressable
             disabled={!game.pendingOffline}
             onPress={() => game.claimOffline()}
@@ -510,6 +495,11 @@ export default function App() {
               </View>
               {lastGain > 0 && (
                 <Text style={s0.gain}>+{lastGain.toLocaleString("ko-KR")}</Text>
+              )}
+              {automationGain > 0 && (
+                <Text style={s0.automationGain}>
+                  자동 +{compactNumber(automationGain)}
+                </Text>
               )}
               <Text style={s0.tap}>{text.tapCookie}</Text>
             </View>
@@ -975,7 +965,7 @@ const s0 = StyleSheet.create({
     gap: 9,
     paddingHorizontal: 12,
     borderBottomWidth: 5,
-    borderColor: "#d69d2b",
+    borderColor: "#c79e6a",
   },
   headPhone: { height: 92, gap: 5, paddingHorizontal: 7 },
   headShort: { height: 78 },
@@ -987,7 +977,7 @@ const s0 = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 4,
-    borderColor: "#b10b39",
+    borderColor: "#b77b38",
   },
   avatarPhone: { width: 54, height: 54, borderRadius: 27 },
   res: {
@@ -997,7 +987,7 @@ const s0 = StyleSheet.create({
     borderRadius: 14,
     backgroundColor: "#fff3d5",
     borderWidth: 2,
-    borderColor: "#b46a5f",
+    borderColor: "#c79e6a",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1013,7 +1003,7 @@ const s0 = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 2,
-    borderColor: "#b46a5f",
+    borderColor: "#b77b38",
   },
   settingPhone: { width: 40, height: 52, borderRadius: 11 },
   body: { flex: 1, padding: 22, gap: 13 },
@@ -1312,25 +1302,17 @@ const s0 = StyleSheet.create({
     borderColor: "#8a4614",
   },
   tap: { marginTop: 12, color: INK, fontWeight: "900", fontSize: 16 },
-  automationStrip: {
-    minHeight: 52,
-    marginHorizontal: 8,
-    marginBottom: 7,
-    paddingHorizontal: 10,
-    borderRadius: 16,
-    backgroundColor: "#d8edff",
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    overflow: "hidden",
-  },
-  automationIcon: { flexDirection: "row", alignItems: "center" },
-  automationEmoji: { fontSize: 30 },
-  automationCount: {
-    marginLeft: -5,
-    marginTop: 20,
-    color: INK,
-    fontSize: 11,
+  automationGain: {
+    position: "absolute",
+    top: 28,
+    borderRadius: 15,
+    backgroundColor: "#e8fff0",
+    borderWidth: 2,
+    borderColor: "#56a86a",
+    paddingHorizontal: 9,
+    paddingVertical: 3,
+    color: "#23713b",
+    fontSize: 13,
     fontWeight: "900",
   },
   promo: {
@@ -1353,7 +1335,7 @@ const s0 = StyleSheet.create({
     height: 118,
     backgroundColor: WINE,
     borderTopWidth: 5,
-    borderColor: "#d69d2b",
+    borderColor: "#c79e6a",
     padding: 11,
     flexDirection: "row",
     gap: 10,
@@ -1376,9 +1358,9 @@ const s0 = StyleSheet.create({
   tab: {
     flex: 1,
     borderRadius: 17,
-    backgroundColor: "#b00838",
+    backgroundColor: "#9c7047",
     borderWidth: 2,
-    borderColor: "#760019",
+    borderColor: "#755033",
     alignItems: "center",
     justifyContent: "center",
   },

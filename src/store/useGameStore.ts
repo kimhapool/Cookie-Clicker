@@ -75,7 +75,7 @@ type Game = {
   resetGame(): void;
   checkOffline(): void;
   claimOffline(): number;
-  tick(seconds: number): void;
+  tick(seconds: number): number;
 };
 
 const emptyBuildings = () =>
@@ -211,7 +211,9 @@ const rarityWeight: Record<Rarity, number> = {
   Mythic: 2,
   Eternal: 1,
   Celestial: 0.55,
-  Secret: 0.0329,
+  // The table is weighted per oven.  There are 199.9 points before Secret,
+  // so this value resolves to the specified 0.0329% final Secret chance.
+  Secret: 0.065756,
 };
 const premiumWeight: Record<Rarity, number> = {
   Common: 8,
@@ -548,6 +550,7 @@ export const useGameStore = create<Game>()(
             totalCookies: state.totalCookies + gain,
             lastSavedAt: Date.now(),
           });
+        return gain;
       },
     }),
     {

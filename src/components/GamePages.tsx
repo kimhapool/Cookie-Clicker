@@ -153,24 +153,52 @@ export function DrawPage() {
               : "50배"}
         </Text>
       </View>
-      <View style={s.row}>
-        <Button title="🍫 기본" onPress={() => setMode("basic")} />
-        <Button title="💎 프리미엄" onPress={() => setMode("premium")} />
-        <Button title="✨ 특성" onPress={() => setMode("trait")} />
+      <View style={s.modeRow}>
+        {[
+          ["basic", "🍫", "기본"],
+          ["premium", "💎", "프리미엄"],
+          ["trait", "✨", "특성"],
+        ].map(([id, emoji, label]) => (
+          <Pressable
+            key={id}
+            onPress={() => setMode(id as "basic" | "premium" | "trait")}
+            style={[s.modeTab, mode === id && s.modeTabActive]}
+          >
+            <Text style={s.modeEmoji}>{emoji}</Text>
+            <Text style={[s.modeText, mode === id && s.modeTextActive]}>
+              {label}
+            </Text>
+          </Pressable>
+        ))}
       </View>
       {mode !== "trait" ? (
         <>
-          <Text style={s.section}>
-            {mode === "basic" ? "초코칩 뽑기" : "프리미엄 초코칩 뽑기"}
-          </Text>
+          <View style={[s.drawShowcase, mode === "premium" && s.drawShowcasePremium]}>
+            <Text style={s.drawOrbit}>✦</Text>
+            <Text style={s.drawOven}>{mode === "basic" ? "🍪" : "💎"}</Text>
+            <Text style={s.drawTitle}>
+              {mode === "basic" ? "초코칩 뽑기" : "프리미엄 오븐 뽑기"}
+            </Text>
+            <Text style={s.drawSub}>
+              {game.nextDrawBoost === "none"
+                ? "오븐을 획득하고 컬렉션을 강화하세요"
+                : "다음 뽑기에 준비된 확률 보정이 적용됩니다"}
+            </Text>
+          </View>
           <View style={s.row}>
-            <Button title="1회 뽑기" onPress={() => draw(mode === "premium")} />
+            <Button
+              title="1회 뽑기"
+              disabled={mode === "premium" ? game.premiumChips < 1 : game.chocoChips < 1}
+              onPress={() => draw(mode === "premium")}
+            />
             <Button
               title="10회 뽑기"
+              disabled={mode === "premium" ? game.premiumChips < 10 : game.chocoChips < 10}
               onPress={() => draw(mode === "premium", 10)}
             />
             <Button
               title="전부 뽑기"
+              disabled={mode === "premium" ? game.premiumChips < 1 : game.chocoChips < 1}
               onPress={() =>
                 draw(
                   mode === "premium",
@@ -612,6 +640,46 @@ const s = StyleSheet.create({
     borderColor: "#bfd7ef",
     gap: 6,
   },
+  modeRow: { flexDirection: "row", gap: 8 },
+  modeTab: {
+    flex: 1,
+    minHeight: 62,
+    borderRadius: 18,
+    paddingVertical: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#fff8e9",
+    borderWidth: 2,
+    borderColor: "#ddc699",
+  },
+  modeTabActive: { backgroundColor: "#ffca45", borderColor: "#9e1634" },
+  modeEmoji: { fontSize: 22 },
+  modeText: { marginTop: 2, color: "#735943", fontSize: 13, fontWeight: "900" },
+  modeTextActive: { color: "#401923" },
+  drawShowcase: {
+    minHeight: 164,
+    borderRadius: 28,
+    padding: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+    backgroundColor: "#2b466f",
+    borderWidth: 3,
+    borderColor: "#8ecdf1",
+  },
+  drawShowcasePremium: { backgroundColor: "#502f79", borderColor: "#db91ed" },
+  drawOrbit: {
+    position: "absolute",
+    top: 4,
+    right: "20%",
+    color: "#fff3a8",
+    fontSize: 54,
+    textShadowColor: "#7ce6ff",
+    textShadowRadius: 14,
+  },
+  drawOven: { fontSize: 54, textShadowColor: "#fff3a8", textShadowRadius: 16 },
+  drawTitle: { marginTop: 3, color: "#fff", fontSize: 22, fontWeight: "900" },
+  drawSub: { marginTop: 4, color: "#dbefff", fontSize: 13, fontWeight: "700" },
   heroText: { fontSize: 16, fontWeight: "700", color: "#4b5663" },
   balance: { fontSize: 18, fontWeight: "900", color: "#401923" },
   card: {
