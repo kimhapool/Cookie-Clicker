@@ -455,7 +455,7 @@ export function InventoryPage() {
                 {oven.name}
               </Text>
               <Text style={s.info}>
-                보유 {owned.level}개 · 융합 {owned.fusion} · 특성 {owned.trait}
+                보유 {owned.level}개 · 융합 {owned.fusion} (x{Math.pow(1.25, owned.fusion).toFixed(2)}) · 특성 {owned.trait}
               </Text>
               <View style={s.row}>
                 <Button title="장착" onPress={() => game.equipOven(oven.id)} />
