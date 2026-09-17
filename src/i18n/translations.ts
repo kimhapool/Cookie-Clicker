@@ -107,3 +107,36 @@ export const labels: Record<GameLanguage, Labels> = {
     todayOven: "Печь дня",
   },
 };
+
+type PageText = {
+  drawTitle: string;
+  basic: string;
+  premium: string;
+  trait: string;
+  drawOnce: string;
+  drawTen: string;
+  drawAll: string;
+  odds: string;
+  confirm: string;
+  close: string;
+  buy: string;
+  sell: string;
+  equip: string;
+  fuse: string;
+  dismantle: string;
+  ascending: string;
+  descending: string;
+  rebirth: string;
+  active: string;
+  idle: string;
+};
+
+export const pageText: Record<GameLanguage, PageText> = {
+  ko: { drawTitle: "오븐 뽑기", basic: "기본", premium: "프리미엄", trait: "특성", drawOnce: "1회 뽑기", drawTen: "10회 뽑기", drawAll: "전부 뽑기", odds: "확률 보기", confirm: "확인", close: "닫기", buy: "구매", sell: "판매", equip: "장착", fuse: "융합", dismantle: "분해", ascending: "등급 오름차순", descending: "등급 내림차순", rebirth: "환생", active: "활성", idle: "대기" },
+  en: { drawTitle: "Oven Draw", basic: "Basic", premium: "Premium", trait: "Trait", drawOnce: "Draw 1", drawTen: "Draw 10", drawAll: "Draw All", odds: "View Odds", confirm: "Confirm", close: "Close", buy: "Buy", sell: "Sell", equip: "Equip", fuse: "Fuse", dismantle: "Dismantle", ascending: "Rarity: Low", descending: "Rarity: High", rebirth: "Rebirth", active: "Active", idle: "Idle" },
+  ja: { drawTitle: "オーブンガチャ", basic: "基本", premium: "プレミアム", trait: "特性", drawOnce: "1回引く", drawTen: "10回引く", drawAll: "すべて引く", odds: "確率を見る", confirm: "確認", close: "閉じる", buy: "購入", sell: "売却", equip: "装備", fuse: "融合", dismantle: "分解", ascending: "レア度 昇順", descending: "レア度 降順", rebirth: "転生", active: "有効", idle: "待機" },
+  zh: { drawTitle: "烤炉抽取", basic: "基础", premium: "高级", trait: "特性", drawOnce: "抽取 1 次", drawTen: "抽取 10 次", drawAll: "全部抽取", odds: "查看概率", confirm: "确认", close: "关闭", buy: "购买", sell: "出售", equip: "装备", fuse: "融合", dismantle: "分解", ascending: "稀有度升序", descending: "稀有度降序", rebirth: "转生", active: "生效中", idle: "待命" },
+  ar: { drawTitle: "سحب الفرن", basic: "أساسي", premium: "مميز", trait: "سمة", drawOnce: "سحب مرة", drawTen: "سحب 10", drawAll: "سحب الكل", odds: "عرض الاحتمالات", confirm: "تأكيد", close: "إغلاق", buy: "شراء", sell: "بيع", equip: "تجهيز", fuse: "دمج", dismantle: "تفكيك", ascending: "الندرة تصاعديا", descending: "الندرة تنازليا", rebirth: "ولادة جديدة", active: "نشط", idle: "انتظار" },
+  de: { drawTitle: "Ofen-Ziehung", basic: "Basis", premium: "Premium", trait: "Merkmal", drawOnce: "1 Ziehung", drawTen: "10 Ziehungen", drawAll: "Alle ziehen", odds: "Chancen", confirm: "Bestätigen", close: "Schließen", buy: "Kaufen", sell: "Verkaufen", equip: "Ausrüsten", fuse: "Verschmelzen", dismantle: "Zerlegen", ascending: "Seltenheit auf", descending: "Seltenheit ab", rebirth: "Wiedergeburt", active: "Aktiv", idle: "Bereit" },
+  ru: { drawTitle: "Призыв печи", basic: "Обычный", premium: "Премиум", trait: "Свойство", drawOnce: "Призвать 1", drawTen: "Призвать 10", drawAll: "Призвать всё", odds: "Шансы", confirm: "Подтвердить", close: "Закрыть", buy: "Купить", sell: "Продать", equip: "Надеть", fuse: "Слить", dismantle: "Разобрать", ascending: "Редкость по возр.", descending: "Редкость по убыв.", rebirth: "Перерождение", active: "Активно", idle: "Ожидание" },
+};

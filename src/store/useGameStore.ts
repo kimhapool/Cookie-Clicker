@@ -98,7 +98,7 @@ const allOvens = (): OwnedOven[] =>
   }));
 const defaultSettings: Settings = {
   sound: true,
-  music: true,
+  music: false,
   musicStyle: "calm",
   vibration: true,
   language: "ko",

@@ -14,6 +14,7 @@ import { BUILDINGS } from "../data/buildings";
 import { UPGRADES } from "../data/upgrades";
 import { OVENS, RARITY_COLORS } from "../data/ovens";
 import { useGameStore } from "../store/useGameStore";
+import { labels, pageText } from "../i18n/translations";
 
 const fmt = (value: number) => Math.floor(value).toLocaleString("ko-KR");
 const BASIC_WEIGHT = {
@@ -81,6 +82,7 @@ function Page({
 
 export function DrawPage() {
   const game = useGameStore();
+  const copy = pageText[game.settings.language ?? "ko"];
   const [mode, setMode] = useState<"basic" | "premium" | "trait">("basic");
   const [results, setResults] = useState<string[]>([]);
   const [flying, setFlying] = useState<string[]>([]);
@@ -139,7 +141,7 @@ export function DrawPage() {
     ? OVENS.find((oven) => oven.id === flying[flightIndex])
     : null;
   return (
-    <Page title="🎰 오븐 뽑기">
+    <Page title={`🎰 ${copy.drawTitle}`}>
       <View style={s.hero}>
         <Text style={s.balance}>
           🍫 {fmt(game.chocoChips)} · 💎 {fmt(game.premiumChips)}
@@ -155,9 +157,9 @@ export function DrawPage() {
       </View>
       <View style={s.modeRow}>
         {[
-          ["basic", "🍫", "기본"],
-          ["premium", "💎", "프리미엄"],
-          ["trait", "✨", "특성"],
+          ["basic", "🍫", copy.basic],
+          ["premium", "💎", copy.premium],
+          ["trait", "✨", copy.trait],
         ].map(([id, emoji, label]) => (
           <Pressable
             key={id}
@@ -187,17 +189,17 @@ export function DrawPage() {
           </View>
           <View style={s.row}>
             <Button
-              title="1회 뽑기"
+              title={copy.drawOnce}
               disabled={mode === "premium" ? game.premiumChips < 1 : game.chocoChips < 1}
               onPress={() => draw(mode === "premium")}
             />
             <Button
-              title="10회 뽑기"
+              title={copy.drawTen}
               disabled={mode === "premium" ? game.premiumChips < 10 : game.chocoChips < 10}
               onPress={() => draw(mode === "premium", 10)}
             />
             <Button
-              title="전부 뽑기"
+              title={copy.drawAll}
               disabled={mode === "premium" ? game.premiumChips < 1 : game.chocoChips < 1}
               onPress={() =>
                 draw(
@@ -208,7 +210,7 @@ export function DrawPage() {
             />
           </View>
           <View style={s.row}>
-            <Button title="확률 보기" onPress={() => setShowOdds(true)} />
+            <Button title={copy.odds} onPress={() => setShowOdds(true)} />
             {game.dictionaries > 0 && (
               <Button
                 title="사전 사용"
@@ -291,7 +293,7 @@ export function DrawPage() {
                 </Text>
               );
             })}
-            <Button title="확인" onPress={() => setResults([])} />
+            <Button title={copy.confirm} onPress={() => setResults([])} />
           </View>
         </View>
       </Modal>
@@ -364,7 +366,7 @@ export function DrawPage() {
                 </Text>
               </View>
             ))}
-            <Button title="닫기" onPress={() => setShowOdds(false)} />
+            <Button title={copy.close} onPress={() => setShowOdds(false)} />
           </ScrollView>
         </View>
       </Modal>
@@ -374,6 +376,7 @@ export function DrawPage() {
 
 export function AutomationPage() {
   const game = useGameStore();
+  const copy = pageText[game.settings.language ?? "ko"];
   const [arriving, setArriving] = useState<string | null>(null);
   const arrival = useRef(new Animated.Value(0)).current;
   const buyBuilding = (id: string) => {
@@ -395,7 +398,7 @@ export function AutomationPage() {
     ]).start(() => setArriving(null));
   };
   return (
-    <Page title="🏭 자동화">
+    <Page title={`🏭 ${labels[game.settings.language ?? "ko"].automation}`}>
       <Text style={s.info}>
         자동화 오븐은 초당 쿠키를 생산합니다. 판매 시 구매가의 80%를
         돌려받습니다.
@@ -448,11 +451,11 @@ export function AutomationPage() {
             )}
             <View style={s.row}>
               <Button
-                title={`${fmt(cost)} 구매`}
+                title={`${fmt(cost)} ${copy.buy}`}
                 onPress={() => buyBuilding(building.id)}
               />
               <Button
-                title="판매"
+                title={copy.sell}
                 disabled={!count}
                 onPress={() => game.sellBuilding(building.id)}
               />
@@ -466,8 +469,9 @@ export function AutomationPage() {
 
 export function ExchangePage() {
   const game = useGameStore();
+  const copy = pageText[game.settings.language ?? "ko"];
   return (
-    <Page title="💱 교환소">
+    <Page title={`💱 ${labels[game.settings.language ?? "ko"].exchange}`}>
       <Text style={s.info}>100,000 쿠키를 초코칩 1개로 교환합니다.</Text>
       <View style={s.card}>
         <Text style={s.cardTitle}>🍪 → 🍫</Text>
@@ -511,13 +515,14 @@ export function ExchangePage() {
 
 export function InventoryPage() {
   const game = useGameStore();
+  const copy = pageText[game.settings.language ?? "ko"];
   const [descending, setDescending] = useState(false);
   const rarityRank = (id: string) =>
     Object.keys(RARITY_COLORS).indexOf(
       OVENS.find((oven) => oven.id === id)!.rarity,
     );
   return (
-    <Page title="🎒 인벤토리">
+    <Page title={`🎒 ${labels[game.settings.language ?? "ko"].inventory}`}>
       <View style={s.hero}>
         <Text style={s.balance}>🍪 {fmt(game.cookies)}</Text>
         <Text style={s.balance}>
@@ -536,7 +541,7 @@ export function InventoryPage() {
       <View style={s.row}>
         <Text style={s.section}>오븐 컬렉션</Text>
         <Button
-          title={descending ? "등급 내림차순" : "등급 오름차순"}
+          title={descending ? copy.descending : copy.ascending}
           onPress={() => setDescending(!descending)}
         />
       </View>
@@ -566,14 +571,14 @@ export function InventoryPage() {
                 {Math.pow(1.25, owned.fusion).toFixed(2)}) · 특성 {owned.trait}
               </Text>
               <View style={s.row}>
-                <Button title="장착" onPress={() => game.equipOven(oven.id)} />
+                <Button title={copy.equip} onPress={() => game.equipOven(oven.id)} />
                 <Button
-                  title={`융합 (${owned.fusion + 2}개)`}
+                  title={`${copy.fuse} (${owned.fusion + 2})`}
                   disabled={owned.level - 1 < owned.fusion + 2}
                   onPress={() => game.fuseOven(oven.id)}
                 />
                 <Button
-                  title="분해"
+                  title={copy.dismantle}
                   disabled={owned.level < 2}
                   onPress={() => game.dismantleOven(oven.id)}
                 />
@@ -587,9 +592,10 @@ export function InventoryPage() {
 
 export function UpgradesPage() {
   const game = useGameStore();
+  const copy = pageText[game.settings.language ?? "ko"];
   const need = 100000 * Math.pow(5, game.rebirths);
   return (
-    <Page title="⚡ 강화">
+    <Page title={`⚡ ${labels[game.settings.language ?? "ko"].upgrades}`}>
       <View style={s.card}>
         <Text style={s.cardTitle}>🌟 환생</Text>
         <Text style={s.info}>
@@ -599,7 +605,7 @@ export function UpgradesPage() {
           현재 {game.rebirths}회 · 필요 쿠키 {fmt(need)}
         </Text>
         <Button
-          title="환생하기"
+          title={copy.rebirth}
           disabled={game.cookies < need}
           onPress={() => game.rebirth()}
         />
@@ -662,7 +668,7 @@ export function AchievementsPage() {
     ],
   ];
   return (
-    <Page title="🏆 도전과제">
+    <Page title={`🏆 ${labels[game.settings.language ?? "ko"].achievements}`}>
       {entries.map(([title, done, description]) => (
         <View key={String(title)} style={[s.card, done ? s.done : s.locked]}>
           <Text style={s.cardTitle}>
