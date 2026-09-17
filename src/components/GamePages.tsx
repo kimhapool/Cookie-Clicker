@@ -15,7 +15,7 @@ import { BUILDINGS } from "../data/buildings";
 import { UPGRADES } from "../data/upgrades";
 import { OVENS, RARITY_COLORS } from "../data/ovens";
 import { useGameStore } from "../store/useGameStore";
-import { inventoryText, labels, pageText } from "../i18n/translations";
+import { automationText, inventoryText, labels, pageText } from "../i18n/translations";
 
 const fmt = (value: number) => Math.floor(value).toLocaleString("ko-KR");
 const BASIC_WEIGHT = {
@@ -469,6 +469,7 @@ export function DrawPage() {
 export function AutomationPage() {
   const game = useGameStore();
   const copy = pageText[game.settings.language ?? "ko"];
+  const words = automationText[game.settings.language ?? "ko"];
   const [arriving, setArriving] = useState<string | null>(null);
   const arrival = useRef(new Animated.Value(0)).current;
   const buyBuilding = (id: string) => {
@@ -491,10 +492,7 @@ export function AutomationPage() {
   };
   return (
     <Page title={`🏭 ${labels[game.settings.language ?? "ko"].automation}`}>
-      <Text style={s.info}>
-        자동화 오븐은 초당 쿠키를 생산합니다. 판매 시 구매가의 80%를
-        돌려받습니다.
-      </Text>
+      <Text style={s.info}>{words.info}</Text>
       {BUILDINGS.map((building) => {
         const count = game.buildings[building.id] || 0;
         const cost = Math.floor(building.baseCost * Math.pow(1.15, count));
@@ -504,7 +502,7 @@ export function AutomationPage() {
               {building.emoji} {building.name}
             </Text>
             <Text style={s.info}>
-              보유 {count}개 · 초당 {fmt(building.baseCps * count)}
+              {words.owned} {count} · {words.perSecond} {fmt(building.baseCps * count)}
             </Text>
             {count > 0 && (
               <View style={s.productionLine}>

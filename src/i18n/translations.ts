@@ -212,3 +212,14 @@ export const inventoryText: Record<GameLanguage, InventoryText> = {
   de: { dictionary:"Zukunftsgebundenes Wörterbuch",diary:"Tagebuch des Zeitreisenden",aurora:"Aurora",opternal:"Opternal",twilight:"Dämmerung",phoenix:"Phönix",infinity:"Unendlichkeit",collection:"Ofensammlung",equipped:"Ausgerüstet",owned:"Besitz",fusion:"Verschmelzung",trait:"Merkmal" },
   ru: { dictionary:"Словарь будущего",diary:"Дневник путешественника во времени",aurora:"Аврора",opternal:"Оптернал",twilight:"Сумерки",phoenix:"Феникс",infinity:"Бесконечность",collection:"Коллекция печей",equipped:"Экипировано",owned:"Есть",fusion:"Слияние",trait:"Свойство" },
 };
+
+type AutomationText = { info: string; owned: string; perSecond: string };
+export const automationText: Record<GameLanguage, AutomationText> = {
+  ko: { info:"자동화 오븐은 초당 쿠키를 생산합니다. 판매 시 구매가의 80%를 돌려받습니다.",owned:"보유",perSecond:"초당" },
+  en: { info:"Automation ovens bake cookies every second. Selling refunds 80% of the purchase cost.",owned:"Owned",perSecond:"per second" },
+  ja: { info:"自動化オーブンは毎秒クッキーを生産します。売却時は購入額の80%が戻ります。",owned:"所持",perSecond:"毎秒" },
+  zh: { info:"自动化烤炉每秒生产曲奇。出售可返还购买价格的 80%。",owned:"拥有",perSecond:"每秒" },
+  ar: { info:"تنتج أفران الأتمتة الكعك كل ثانية. يمنح البيع 80% من سعر الشراء.",owned:"مملوك",perSecond:"كل ثانية" },
+  de: { info:"Automatiköfen backen jede Sekunde Kekse. Beim Verkauf erhalten Sie 80% des Kaufpreises zurück.",owned:"Besitz",perSecond:"pro Sekunde" },
+  ru: { info:"Автоматические печи производят печенье каждую секунду. Продажа возвращает 80% цены покупки.",owned:"Есть",perSecond:"в секунду" },
+};
