@@ -15,7 +15,7 @@ import { BUILDINGS } from "../data/buildings";
 import { UPGRADES } from "../data/upgrades";
 import { OVENS, RARITY_COLORS } from "../data/ovens";
 import { useGameStore } from "../store/useGameStore";
-import { automationText, inventoryText, labels, pageText } from "../i18n/translations";
+import { automationText, inventoryText, labels, ovenDisplayName, pageText, progressText, traitNames } from "../i18n/translations";
 
 const fmt = (value: number) => Math.floor(value).toLocaleString("ko-KR");
 const BASIC_WEIGHT = {
@@ -94,7 +94,8 @@ function Page({
 
 export function DrawPage() {
   const game = useGameStore();
-  const copy = pageText[game.settings.language ?? "ko"];
+  const language = game.settings.language ?? "ko";
+  const copy = pageText[language];
   const [mode, setMode] = useState<"basic" | "premium" | "trait">("basic");
   const [results, setResults] = useState<string[]>([]);
   const [flying, setFlying] = useState<string[]>([]);
@@ -266,10 +267,10 @@ export function DrawPage() {
           <Text style={s.section}>{copy.traitDraw}</Text>
           <View style={s.card}>
             <Text style={s.cardTitle}>
-              {OVENS.find((oven) => oven.id === selected.ovenId)?.name}
+              {(() => { const oven = OVENS.find((item) => item.id === selected.ovenId); return oven ? ovenDisplayName(oven.id, oven.name, language) : ""; })()}
             </Text>
             <Text style={s.info}>
-              {copy.currentTrait}: {selected.trait} · {copy.traitHint}
+              {copy.currentTrait}: {traitNames[language][selected.trait] ?? selected.trait} · {copy.traitHint}
             </Text>
             <Button
               title={copy.traitDraw}
@@ -360,7 +361,7 @@ export function DrawPage() {
                     { color: RARITY_COLORS[oven.rarity] },
                   ]}
                 >
-                  {oven.name} ×{count} · {oven.rarity}
+                  {ovenDisplayName(oven.id, oven.name, language)} ×{count} · {oven.rarity}
                 </Text>
               );
             })}
@@ -427,7 +428,7 @@ export function DrawPage() {
                 ✦
               </Text>
               <Text style={s.flightEmoji}>🔥</Text>
-              <Text style={s.flightName}>{flyingOven.name}</Text>
+              <Text style={s.flightName}>{ovenDisplayName(flyingOven.id, flyingOven.name, language)}</Text>
               <Text
                 style={[s.rarity, { color: RARITY_COLORS[flyingOven.rarity] }]}
               >
@@ -450,7 +451,7 @@ export function DrawPage() {
             </Text>
             {OVENS.map((oven) => (
               <View key={oven.id} style={s.oddsRow}>
-                <Text style={s.ovenName}>{oven.name}</Text>
+                <Text style={s.ovenName}>{ovenDisplayName(oven.id, oven.name, language)}</Text>
                 <Text style={[s.rarity, { color: RARITY_COLORS[oven.rarity] }]}>
                   {oven.rarity === "Secret"
                     ? "???"
@@ -561,47 +562,48 @@ export function AutomationPage() {
 export function ExchangePage() {
   const game = useGameStore();
   const copy = pageText[game.settings.language ?? "ko"];
+  const words = progressText[game.settings.language ?? "ko"];
   return (
     <Page title={`💱 ${labels[game.settings.language ?? "ko"].exchange}`}>
-      <Text style={s.info}>100,000 쿠키를 초코칩 1개로 교환합니다.</Text>
+      <Text style={s.info}>{words.exchangeInfo}</Text>
       <View style={s.card}>
         <Text style={s.cardTitle}>🍪 → 🍫</Text>
-        <Text style={s.info}>보유 쿠키 {fmt(game.cookies)}</Text>
+        <Text style={s.info}>{words.cookiesOwned} {fmt(game.cookies)}</Text>
         <View style={s.row}>
           <Button
-            title="1개 교환"
+            title={words.exchangeOne}
             disabled={game.cookies < 100000}
             onPress={() => game.exchangeCookies(100000)}
           />
           <Button
-            title="10개 교환"
+            title={words.exchangeTen}
             disabled={game.cookies < 1000000}
             onPress={() => game.exchangeCookies(1000000)}
           />
           <Button
-            title="전부 교환"
+            title={words.exchangeAll}
             disabled={game.cookies < 100000}
             onPress={() => game.exchangeCookies(game.cookies)}
           />
         </View>
       </View>
       <View style={s.card}>
-        <Text style={s.cardTitle}>🍫 고급 교환</Text>
-        <Text style={s.info}>초코칩 10,000개 → 프리미엄 초코칩 1개</Text>
+        <Text style={s.cardTitle}>{words.premiumExchange}</Text>
+        <Text style={s.info}>{words.premiumCost}</Text>
         <Button
-          title="프리미엄 초코칩 교환"
+          title={words.premiumExchange}
           disabled={game.chocoChips < 10000}
           onPress={() => game.exchangeChips("premium")}
         />
-        <Text style={s.info}>초코칩 1,000,000개 → 미래를 담은 사전 1권</Text>
+        <Text style={s.info}>{words.dictionaryCost}</Text>
         <Button
-          title="미래를 담은 사전 교환"
+          title={words.dictionaryExchange}
           disabled={game.chocoChips < 1000000}
           onPress={() => game.exchangeChips("dictionary")}
         />
-        <Text style={s.info}>사전 3권 → 시간 여행자의 일기 1권</Text>
+        <Text style={s.info}>{words.diaryCost}</Text>
         <Button
-          title="시간 여행자의 일기 제작"
+          title={words.diaryCraft}
           disabled={game.dictionaries < 3}
           onPress={() => game.exchangeChips("diary")}
         />
@@ -612,8 +614,9 @@ export function ExchangePage() {
 
 export function InventoryPage() {
   const game = useGameStore();
-  const copy = pageText[game.settings.language ?? "ko"];
-  const words = inventoryText[game.settings.language ?? "ko"];
+  const language = game.settings.language ?? "ko";
+  const copy = pageText[language];
+  const words = inventoryText[language];
   const [descending, setDescending] = useState(false);
   const rarityRank = (id: string) =>
     Object.keys(RARITY_COLORS).indexOf(
@@ -661,11 +664,11 @@ export function InventoryPage() {
             >
               <Text style={s.ovenName}>
                 {game.equippedOvenId === oven.id ? `${words.equipped} · ` : ""}
-                {oven.name}
+                {ovenDisplayName(oven.id, oven.name, language)}
               </Text>
               <Text style={s.info}>
                 {words.owned} {owned.level} · {words.fusion} {owned.fusion} (x
-                {Math.pow(1.25, owned.fusion).toFixed(2)}) · {words.trait} {owned.trait}
+                {Math.pow(1.25, owned.fusion).toFixed(2)}) · {words.trait} {traitNames[language][owned.trait] ?? owned.trait}
               </Text>
               <View style={s.row}>
                 <Button title={copy.equip} onPress={() => game.equipOven(oven.id)} />
@@ -690,16 +693,17 @@ export function InventoryPage() {
 export function UpgradesPage() {
   const game = useGameStore();
   const copy = pageText[game.settings.language ?? "ko"];
+  const words = progressText[game.settings.language ?? "ko"];
   const need = 100000 * Math.pow(5, game.rebirths);
   return (
     <Page title={`⚡ ${labels[game.settings.language ?? "ko"].upgrades}`}>
       <View style={s.card}>
-        <Text style={s.cardTitle}>🌟 환생</Text>
+        <Text style={s.cardTitle}>🌟 {copy.rebirth}</Text>
         <Text style={s.info}>
-          환생할 때마다 클릭과 자동화 생산량이 50% 증가합니다.
+          {words.rebirthInfo}
         </Text>
         <Text style={s.info}>
-          현재 {game.rebirths}회 · 필요 쿠키 {fmt(need)}
+          {words.rebirthCost.replace("{count}", String(game.rebirths)).replace("{cost}", fmt(need))}
         </Text>
         <Button
           title={copy.rebirth}
@@ -708,10 +712,10 @@ export function UpgradesPage() {
         />
       </View>
       <View style={s.card}>
-        <Text style={s.cardTitle}>🍪 달콤한 부스트</Text>
-        <Text style={s.info}>부스트는 홈 화면에서 사용하실 수 있습니다.</Text>
+        <Text style={s.cardTitle}>{words.sweetBoost}</Text>
+        <Text style={s.info}>{words.boostInfo}</Text>
       </View>
-      <Text style={s.section}>영구 강화</Text>
+      <Text style={s.section}>{words.permanent}</Text>
       {UPGRADES.map((upgrade) => {
         const level = game.upgrades[upgrade.id];
         const cost = Math.floor(
@@ -724,7 +728,7 @@ export function UpgradesPage() {
             </Text>
             <Text style={s.info}>{upgrade.description}</Text>
             <Button
-              title={`${fmt(cost)} 쿠키로 강화`}
+              title={words.upgradeCost.replace("{cost}", fmt(cost))}
               disabled={game.cookies < cost}
               onPress={() => game.buyUpgrade(upgrade.id)}
             />
@@ -732,8 +736,8 @@ export function UpgradesPage() {
         );
       })}
       <View style={s.card}>
-        <Text style={s.cardTitle}>🏭 생산 강화</Text>
-        <Text style={s.info}>자동화 오븐을 늘려 초당 생산량을 올리세요.</Text>
+        <Text style={s.cardTitle}>{words.production}</Text>
+        <Text style={s.info}>{words.productionInfo}</Text>
       </View>
     </Page>
   );
@@ -741,28 +745,29 @@ export function UpgradesPage() {
 
 export function AchievementsPage() {
   const game = useGameStore();
+  const words = progressText[game.settings.language ?? "ko"];
   const entries = [
-    ["첫 반죽", game.taps >= 1, "쿠키를 처음 구웠습니다"],
+    [words.achievements[0][0], game.taps >= 1, words.achievements[0][1]],
     [
-      "빵집 개업",
+      words.achievements[1][0],
       game.buildings.grandma_oven >= 1,
-      "가정용 오븐을 구매했습니다",
+      words.achievements[1][1],
     ],
     [
-      "오븐 수집가",
+      words.achievements[2][0],
       game.ovens.filter((oven) => oven.level > 0).length >= 5,
-      "오븐 5종을 보유했습니다",
+      words.achievements[2][1],
     ],
-    ["달콤한 전환", game.chocoChips >= 10, "초코칩 10개를 모았습니다"],
-    ["새로운 생", game.rebirths >= 1, "첫 환생을 완료했습니다"],
-    ["새 출발", game.resets >= 1, "데이터 초기화 후 다시 베이커리를 열었습니다"],
+    [words.achievements[3][0], game.chocoChips >= 10, words.achievements[3][1]],
+    [words.achievements[4][0], game.rebirths >= 1, words.achievements[4][1]],
+    [words.achievements[5][0], game.resets >= 1, words.achievements[5][1]],
   ];
   const secretEntries = [
-    ["달빛 제빵사", game.totalDraws >= 50, "숨겨진 뽑기 기록을 달성했습니다"],
+    [words.secretAchievements[0][0], game.totalDraws >= 50, words.secretAchievements[0][1]],
     [
-      "무한의 향",
+      words.secretAchievements[1][0],
       game.ovens.find((oven) => oven.ovenId === "oven-16")?.level! >= 2,
-      "Secret 오븐을 다시 만났습니다",
+      words.secretAchievements[1][1],
     ],
   ];
   return (
