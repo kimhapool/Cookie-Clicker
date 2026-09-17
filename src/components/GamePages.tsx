@@ -40,10 +40,21 @@ const PREMIUM_WEIGHT = {
   Celestial: 3.5,
   Secret: 0.329,
 } as const;
-const ovenChance = (rarity: keyof typeof BASIC_WEIGHT, premium: boolean) => {
+const HIGH_RARITIES = new Set(["Mythic", "Eternal", "Celestial", "Secret"]);
+const ovenChance = (
+  rarity: keyof typeof BASIC_WEIGHT,
+  premium: boolean,
+  level: number,
+  boost: "none" | "dictionary" | "diary",
+) => {
   const table = premium ? PREMIUM_WEIGHT : BASIC_WEIGHT;
-  const total = OVENS.reduce((sum, oven) => sum + table[oven.rarity], 0);
-  return `${((table[rarity] / total) * 100).toFixed(rarity === "Secret" ? 4 : 2)}%`;
+  const boostMultiplier = boost === "diary" ? 50 : boost === "dictionary" ? 15 : 1;
+  const levelBonus = premium ? 1 : 1 + Math.max(0, level - 1) * 0.035;
+  const weightFor = (itemRarity: keyof typeof BASIC_WEIGHT) =>
+    table[itemRarity] *
+    (HIGH_RARITIES.has(itemRarity) ? boostMultiplier * levelBonus : 1);
+  const total = OVENS.reduce((sum, oven) => sum + weightFor(oven.rarity), 0);
+  return `${((weightFor(rarity) / total) * 100).toFixed(rarity === "Secret" ? 4 : 2)}%`;
 };
 
 function Button({
@@ -444,7 +455,7 @@ export function DrawPage() {
                 <Text style={[s.rarity, { color: RARITY_COLORS[oven.rarity] }]}>
                   {oven.rarity === "Secret"
                     ? "???"
-                    : `${oven.rarity} · ${ovenChance(oven.rarity, mode === "premium")}`}
+                    : `${oven.rarity} · ${ovenChance(oven.rarity, mode === "premium", game.drawLevel, game.nextDrawBoost)}`}
                 </Text>
               </View>
             ))}
