@@ -719,6 +719,7 @@ export function AchievementsPage() {
     ],
     ["달콤한 전환", game.chocoChips >= 10, "초코칩 10개를 모았습니다"],
     ["새로운 생", game.rebirths >= 1, "첫 환생을 완료했습니다"],
+    ["새 출발", game.resets >= 1, "데이터 초기화 후 다시 베이커리를 열었습니다"],
   ];
   const secretEntries = [
     ["달빛 제빵사", game.totalDraws >= 50, "숨겨진 뽑기 기록을 달성했습니다"],

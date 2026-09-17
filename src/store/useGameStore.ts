@@ -40,6 +40,7 @@ type Game = {
   settings: Settings;
   upgrades: Record<"click" | "cps" | "global", number>;
   rebirths: number;
+  resets: number;
   buildings: Record<string, number>;
   ovens: OwnedOven[];
   equippedOvenId: string;
@@ -119,6 +120,7 @@ const baseState = () => ({
   settings: defaultSettings,
   upgrades: { click: 0, cps: 0, global: 0 },
   rebirths: 0,
+  resets: 0,
   buildings: emptyBuildings(),
   ovens: allOvens(),
   equippedOvenId: OVENS[0].id,
@@ -526,7 +528,10 @@ export const useGameStore = create<Game>()(
           ),
         });
       },
-      resetGame: () => set(baseState()),
+      resetGame: () => {
+        const resets = get().resets + 1;
+        set({ ...baseState(), resets, achievements: ["reset"] });
+      },
       checkOffline: () => {
         const state = get();
         if (state.pendingOffline > 0) return;
