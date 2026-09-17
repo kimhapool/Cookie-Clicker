@@ -27,7 +27,7 @@ const BASIC_WEIGHT = {
   Mythic: 2,
   Eternal: 1,
   Celestial: 0.55,
-  Secret: 0.0329,
+  Secret: 0.065756,
 } as const;
 const PREMIUM_WEIGHT = {
   Common: 8,
@@ -42,7 +42,7 @@ const PREMIUM_WEIGHT = {
 } as const;
 const ovenChance = (rarity: keyof typeof BASIC_WEIGHT, premium: boolean) => {
   const table = premium ? PREMIUM_WEIGHT : BASIC_WEIGHT;
-  const total = Object.values(table).reduce((sum, value) => sum + value, 0);
+  const total = OVENS.reduce((sum, oven) => sum + table[oven.rarity], 0);
   return `${((table[rarity] / total) * 100).toFixed(rarity === "Secret" ? 4 : 2)}%`;
 };
 
