@@ -15,7 +15,7 @@ import { BUILDINGS } from "../data/buildings";
 import { UPGRADES } from "../data/upgrades";
 import { OVENS, RARITY_COLORS } from "../data/ovens";
 import { useGameStore } from "../store/useGameStore";
-import { labels, pageText } from "../i18n/translations";
+import { inventoryText, labels, pageText } from "../i18n/translations";
 
 const fmt = (value: number) => Math.floor(value).toLocaleString("ko-KR");
 const BASIC_WEIGHT = {
@@ -615,6 +615,7 @@ export function ExchangePage() {
 export function InventoryPage() {
   const game = useGameStore();
   const copy = pageText[game.settings.language ?? "ko"];
+  const words = inventoryText[game.settings.language ?? "ko"];
   const [descending, setDescending] = useState(false);
   const rarityRank = (id: string) =>
     Object.keys(RARITY_COLORS).indexOf(
@@ -628,17 +629,16 @@ export function InventoryPage() {
           🍫 {fmt(game.chocoChips)} · 💎 {fmt(game.premiumChips)}
         </Text>
         <Text style={s.info}>
-          미래를 담은 사전 {game.dictionaries}권 · 시간 여행자의 일기{" "}
-          {game.diaries}권
+          {words.dictionary} {game.dictionaries} · {words.diary} {game.diaries}
         </Text>
         <Text style={s.info}>
-          오로라 {game.epirus.aurora} · 옵터널 {game.epirus.opternal} · 황혼{" "}
-          {game.epirus.twilight} · 피닉스 {game.epirus.phoenix} · 인피니티{" "}
+          {words.aurora} {game.epirus.aurora} · {words.opternal} {game.epirus.opternal} · {words.twilight}{" "}
+          {game.epirus.twilight} · {words.phoenix} {game.epirus.phoenix} · {words.infinity}{" "}
           {game.epirus.infinity}
         </Text>
       </View>
       <View style={s.row}>
-        <Text style={s.section}>오븐 컬렉션</Text>
+        <Text style={s.section}>{words.collection}</Text>
         <Button
           title={descending ? copy.descending : copy.ascending}
           onPress={() => setDescending(!descending)}
@@ -662,12 +662,12 @@ export function InventoryPage() {
               style={[s.oven, { borderColor: RARITY_COLORS[oven.rarity] }]}
             >
               <Text style={s.ovenName}>
-                {game.equippedOvenId === oven.id ? "장착됨 · " : ""}
+                {game.equippedOvenId === oven.id ? `${words.equipped} · ` : ""}
                 {oven.name}
               </Text>
               <Text style={s.info}>
-                보유 {owned.level}개 · 융합 {owned.fusion} (x
-                {Math.pow(1.25, owned.fusion).toFixed(2)}) · 특성 {owned.trait}
+                {words.owned} {owned.level} · {words.fusion} {owned.fusion} (x
+                {Math.pow(1.25, owned.fusion).toFixed(2)}) · {words.trait} {owned.trait}
               </Text>
               <View style={s.row}>
                 <Button title={copy.equip} onPress={() => game.equipOven(oven.id)} />
