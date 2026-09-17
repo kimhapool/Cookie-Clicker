@@ -383,31 +383,6 @@ export default function App() {
                 : modal.offlineWaiting}
             </Text>
           </View>
-          {ownedBuildings.length > 0 && (
-            <View style={[s0.automationVista, short && s0.automationVistaShort]}>
-              <View style={s0.automationVistaHead}>
-                <Text style={s0.automationVistaTitle}>{home.auto} {modal.autoBakery}</Text>
-                <Text style={s0.automationVistaCps}>+{compactNumber(cps)}/초</Text>
-              </View>
-              <View style={s0.automationVistaItems}>
-                {ownedBuildings.map((building, index) => (
-                  <View key={building.id} style={s0.automationVistaItem}>
-                    <Text
-                      style={[
-                        s0.automationVistaEmoji,
-                        { fontSize: 25 + index * 3 },
-                      ]}
-                    >
-                      {building.emoji}
-                    </Text>
-                    <Text style={s0.automationVistaCount}>
-                      ×{game.buildings[building.id]}
-                    </Text>
-                  </View>
-                ))}
-              </View>
-            </View>
-          )}
           <Pressable
             disabled={!game.pendingOffline}
             onPress={() => {
@@ -642,6 +617,22 @@ export default function App() {
               />
             </View>
           </View>
+          {ownedBuildings.length > 0 && (
+            <View style={[s0.automationVista, short && s0.automationVistaShort]}>
+              <View style={s0.automationVistaHead}>
+                <Text style={s0.automationVistaTitle}>{home.auto} {modal.autoBakery}</Text>
+                <Text style={s0.automationVistaCps}>+{compactNumber(cps)}/초</Text>
+              </View>
+              <View style={s0.automationVistaItems}>
+                {ownedBuildings.map((building, index) => (
+                  <View key={building.id} style={s0.automationVistaItem}>
+                    <Text style={[s0.automationVistaEmoji, { fontSize: 25 + index * 3 }]}>{building.emoji}</Text>
+                    <Text style={s0.automationVistaCount}>×{game.buildings[building.id]}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          )}
           <Pressable
             disabled={!canOpenTab(1)}
             onPress={() => setTab(1)}
