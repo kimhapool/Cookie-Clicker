@@ -435,13 +435,16 @@ export default function App() {
                 s0.boostCard,
                 game.boostUntil > Date.now() && s0.claimDisabled,
               ]}
-            >
-              <Text style={s0.boostTitle}>🔥 {home.doublePotion}</Text>
-              <Text style={s0.boostSub}>
-                {game.boostUntil > clock
-                  ? `${Math.ceil((game.boostUntil - clock) / 1000)}초`
-                  : "2배 · 5,000 쿠키"}
-              </Text>
+              >
+                <Text style={s0.boostTitle}>🔥 {home.doublePotion}</Text>
+              <View style={s0.boostMeta}>
+                <Text style={s0.boostSub}>
+                  {game.boostUntil > clock
+                    ? `${home.active} · ${Math.ceil((game.boostUntil - clock) / 1000)}초`
+                    : "2배 · 5,000 쿠키"}
+                </Text>
+                <View style={s0.boostUse}><Text style={s0.boostUseText}>{game.boostUntil > clock ? "✓" : home.use}</Text></View>
+              </View>
             </Pressable>
             <Pressable
               disabled={game.boostUntil > Date.now() || game.cookies < 25000}
@@ -451,13 +454,16 @@ export default function App() {
                 s0.feverCard,
                 game.boostUntil > Date.now() && s0.claimDisabled,
               ]}
-            >
-              <Text style={s0.boostTitle}>🌈 {home.feverTime}</Text>
-              <Text style={s0.boostSub}>
-                {game.boostUntil > clock
-                  ? `${Math.ceil((game.boostUntil - clock) / 1000)}초`
-                  : "4배 · 25,000 쿠키"}
-              </Text>
+              >
+                <Text style={s0.boostTitle}>🌈 {home.feverTime}</Text>
+              <View style={s0.boostMeta}>
+                <Text style={s0.boostSub}>
+                  {game.boostUntil > clock
+                    ? `${home.active} · ${Math.ceil((game.boostUntil - clock) / 1000)}초`
+                    : "4배 · 25,000 쿠키"}
+                </Text>
+                <View style={s0.boostUse}><Text style={s0.boostUseText}>{game.boostUntil > clock ? "✓" : home.use}</Text></View>
+              </View>
             </Pressable>
           </View>
           <View style={s0.play}>
@@ -1301,6 +1307,9 @@ const s0 = StyleSheet.create({
   feverCard: { backgroundColor: "#ef8fbd", borderColor: "#a541aa" },
   boostTitle: { color: INK, fontWeight: "900", fontSize: 12 },
   boostSub: { color: "#62412e", fontWeight: "800", fontSize: 10, marginTop: 2 },
+  boostMeta: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 2 },
+  boostUse: { marginLeft: "auto", minWidth: 32, paddingHorizontal: 7, paddingVertical: 3, borderRadius: 9, backgroundColor: "#fff8e9", alignItems: "center", borderWidth: 1, borderColor: "#b77925" },
+  boostUseText: { color: INK, fontSize: 10, fontWeight: "900" },
   play: {
     flex: 1,
     flexDirection: "row",
