@@ -110,14 +110,20 @@ function Side({
   t,
   onPress,
   compact = false,
+  disabled = false,
 }: {
   e: string;
   t: string;
   onPress?: () => void;
   compact?: boolean;
+  disabled?: boolean;
 }) {
   return (
-    <Pressable onPress={onPress} style={[s0.side, compact && s0.sideShort]}>
+    <Pressable
+      disabled={disabled}
+      onPress={onPress}
+      style={[s0.side, compact && s0.sideShort, disabled && s0.sideLocked]}
+    >
       <Text style={s0.sideE}>{e}</Text>
       <Text style={s0.sideT}>{t}</Text>
     </Pressable>
@@ -435,24 +441,28 @@ export default function App() {
                 e="📬"
                 t="우편"
                 compact={short}
+                disabled={!game.tutorialComplete && game.tutorialStep < 3}
                 onPress={() => setPanel("mail")}
               />
               <Side
                 e="📋"
                 t="미션"
                 compact={short}
+                disabled={!game.tutorialComplete}
                 onPress={() => setPanel("missions")}
               />
               <Pressable
+                disabled={!game.tutorialComplete}
                 onPress={() => setRebirthOpen(true)}
-                style={[s0.side, short && s0.sideShort]}
+                style={[s0.side, short && s0.sideShort, !game.tutorialComplete && s0.sideLocked]}
               >
                 <Text style={s0.sideE}>😇</Text>
                 <Text style={s0.sideT}>환생</Text>
               </Pressable>
               <Pressable
+                disabled={!canOpenTab(1)}
                 onPress={() => setTab(1)}
-                style={[s0.side, short && s0.sideShort]}
+                style={[s0.side, short && s0.sideShort, !canOpenTab(1) && s0.sideLocked]}
               >
                 <Text style={s0.sideE}>🎲</Text>
                 <Text style={s0.sideT}>확률</Text>
@@ -574,8 +584,9 @@ export default function App() {
             </View>
           </View>
           <Pressable
+            disabled={!canOpenTab(1)}
             onPress={() => setTab(1)}
-            style={[s0.promo, short && s0.promoShort]}
+            style={[s0.promo, short && s0.promoShort, !canOpenTab(1) && s0.claimDisabled]}
           >
             <Text style={s0.promoE}>🎁</Text>
             <View>
@@ -1266,6 +1277,7 @@ const s0 = StyleSheet.create({
     justifyContent: "center",
   },
   sideShort: { height: 39, borderRadius: 14, borderWidth: 2 },
+  sideLocked: { opacity: 0.35 },
   sideE: { fontSize: 20 },
   sideT: { fontSize: 12, fontWeight: "900", color: INK },
   cookieZone: { flex: 1, alignItems: "center", justifyContent: "center" },
