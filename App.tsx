@@ -41,10 +41,12 @@ function Cookie({
   small = false,
   onPress,
   size,
+  rebirths = 0,
 }: {
   small?: boolean;
   onPress?: () => void;
   size?: number;
+  rebirths?: number;
 }) {
   const { width, height } = useWindowDimensions();
   const s = small
@@ -52,12 +54,31 @@ function Cookie({
     : size ?? Math.min(190, Math.max(124, width * 0.46), Math.max(124, height * 0.19));
   if (!small)
     return (
-      <Pressable onPress={onPress} style={{ width: s, height: s }}>
+      <Pressable onPress={onPress} style={{ width: s, height: s, alignItems: "center", justifyContent: "center" }}>
+        {rebirths > 0 && (
+          <View
+            pointerEvents="none"
+            style={[
+              s0.rebirthHalo,
+              {
+                width: s * 1.12,
+                height: s * 1.12,
+                borderRadius: s,
+                borderColor: ["#ffca45", "#ff9a60", "#ff74be", "#8be2ff", "#b993ff"][rebirths % 5],
+              },
+            ]}
+          />
+        )}
         <Image
           source={require("./assets/cookie-cutout.png")}
           style={{ width: s, height: s }}
           resizeMode="contain"
         />
+        {rebirths > 0 && (
+          <Text pointerEvents="none" style={[s0.rebirthMark, { fontSize: Math.max(12, s * 0.12) }]}>
+            {rebirths % 5 === 1 ? "✦" : rebirths % 5 === 2 ? "✧" : rebirths % 5 === 3 ? "☾" : rebirths % 5 === 4 ? "✺" : "✹"}
+          </Text>
+        )}
       </Pressable>
     );
   return (
@@ -557,7 +578,7 @@ export default function App() {
                     },
                   ]}
                 />
-                <Cookie size={cookieSize} onPress={tapCookie} />
+                <Cookie size={cookieSize} rebirths={game.rebirths} onPress={tapCookie} />
                 {lastGain > 0 && (
                   <Text pointerEvents="none" style={s0.gain}>
                     +{lastGain.toLocaleString("ko-KR")}
@@ -1373,6 +1394,8 @@ const s0 = StyleSheet.create({
     justifyContent: "center",
     position: "relative",
   },
+  rebirthHalo: { position: "absolute", borderWidth: 5, shadowOpacity: 0.9, shadowRadius: 13, shadowColor: "#fff4a6", elevation: 8 },
+  rebirthMark: { position: "absolute", color: "#fff6c7", textShadowColor: "#a959cf", textShadowRadius: 5, fontWeight: "900", top: "11%", right: "13%", zIndex: 4 },
   tapAura: { position: "absolute", inset: 0, borderRadius: 999, opacity: 0.78, overflow: "hidden" },
   auraFill: { flex: 1, borderRadius: 999 },
   sparkle: {
