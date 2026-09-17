@@ -261,21 +261,21 @@ export default function App() {
   ]);
   useEffect(() => {
     const candidates = [
-      ["첫 반죽", game.taps >= 1],
-      ["빵집 개업", Object.values(game.buildings).some(Boolean)],
-      ["새로운 생", game.rebirths >= 1],
-      ["오븐 수집가", game.totalDraws >= 10],
+      [home.firstBake, game.taps >= 1],
+      [home.bakeryOpen, Object.values(game.buildings).some(Boolean)],
+      [home.newLife, game.rebirths >= 1],
+      [home.ovenCollector, game.totalDraws >= 10],
     ] as const;
     const found = candidates.find(
       ([name, unlocked]) => unlocked && !shownAchievements.current.has(name),
     );
     if (found) {
       shownAchievements.current.add(found[0]);
-      setAchievementToast(`🏆 도전과제 달성: ${found[0]}`);
+      setAchievementToast(`🏆 ${home.achievementUnlocked}: ${found[0]}`);
       const timer = setTimeout(() => setAchievementToast(null), 2600);
       return () => clearTimeout(timer);
     }
-  }, [game.taps, game.buildings, game.rebirths, game.totalDraws]);
+  }, [game.taps, game.buildings, game.rebirths, game.totalDraws, home]);
   useEffect(() => {
     if (tapStage !== 3) {
       rainbowSpin.stopAnimation();
@@ -440,8 +440,8 @@ export default function App() {
               <View style={s0.boostMeta}>
                 <Text style={s0.boostSub}>
                   {game.boostUntil > clock
-                    ? `${home.active} · ${Math.ceil((game.boostUntil - clock) / 1000)}초`
-                    : "2배 · 5,000 쿠키"}
+                    ? `${home.active} · ${Math.ceil((game.boostUntil - clock) / 1000)}${home.seconds}`
+                    : home.doubleCost}
                 </Text>
                 <View style={s0.boostUse}><Text style={s0.boostUseText}>{game.boostUntil > clock ? "✓" : home.use}</Text></View>
               </View>
@@ -459,8 +459,8 @@ export default function App() {
               <View style={s0.boostMeta}>
                 <Text style={s0.boostSub}>
                   {game.boostUntil > clock
-                    ? `${home.active} · ${Math.ceil((game.boostUntil - clock) / 1000)}초`
-                    : "4배 · 25,000 쿠키"}
+                    ? `${home.active} · ${Math.ceil((game.boostUntil - clock) / 1000)}${home.seconds}`
+                    : home.feverCost}
                 </Text>
                 <View style={s0.boostUse}><Text style={s0.boostUseText}>{game.boostUntil > clock ? "✓" : home.use}</Text></View>
               </View>
@@ -628,13 +628,13 @@ export default function App() {
                 compact
                 tight={short}
                 a={home.ownedOvens}
-                b={`${game.ovens.filter((o) => o.level > 0).length}종`}
+                b={`${game.ovens.filter((o) => o.level > 0).length}${home.ovenUnit}`}
               />
               <Stat
                 compact
                 tight={short}
                 a={home.chips}
-                b={`${game.chocoChips}개`}
+                b={`${game.chocoChips}${home.chipUnit}`}
               />
               <Stat
                 compact
@@ -642,7 +642,7 @@ export default function App() {
                 a={home.buff}
                 b={
                   game.boostUntil > clock
-                    ? `${game.boostMultiplier}배 ${Math.ceil((game.boostUntil - clock) / 1000)}초`
+                    ? `×${game.boostMultiplier} ${Math.ceil((game.boostUntil - clock) / 1000)}${home.seconds}`
                     : home.waiting
                 }
               />
@@ -652,7 +652,7 @@ export default function App() {
             <View style={[s0.automationVista, short && s0.automationVistaShort]}>
               <View style={s0.automationVistaHead}>
                 <Text style={s0.automationVistaTitle}>{home.auto} {modal.autoBakery}</Text>
-                <Text style={s0.automationVistaCps}>+{compactNumber(cps)}/초</Text>
+                <Text style={s0.automationVistaCps}>+{compactNumber(cps)}{home.perSecond}</Text>
               </View>
               {automationGain > 0 && (
                 <Text style={s0.automationVistaGain}>+{compactNumber(automationGain)}</Text>
@@ -916,10 +916,10 @@ export default function App() {
                 <Text style={s0.languageText}>
                   {
                     {
-                      pop: "팝",
-                      drum: "드럼",
-                      bite: "바삭한 한입",
-                      crumble: "부스러짐",
+                      pop: modal.tapPop,
+                      drum: modal.tapDrum,
+                      bite: modal.tapBite,
+                      crumble: modal.tapCrumble,
                     }[game.settings.tapSound]
                   }
                 </Text>

@@ -187,8 +187,8 @@ export function DrawPage() {
           {game.nextDrawBoost === "none"
             ? copy.none
             : game.nextDrawBoost === "dictionary"
-              ? "15배"
-              : "50배"}
+              ? "×15"
+              : "×50"}
         </Text>
       </View>
       <View style={s.modeRow}>
