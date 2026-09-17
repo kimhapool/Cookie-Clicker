@@ -183,9 +183,9 @@ export function DrawPage() {
           🍫 {fmt(game.chocoChips)} · 💎 {fmt(game.premiumChips)}
         </Text>
         <Text style={s.info}>
-          뽑기 레벨 Lv.{game.drawLevel} · 다음 보정{" "}
+          {copy.drawLevel} Lv.{game.drawLevel} · {copy.nextBoost}{" "}
           {game.nextDrawBoost === "none"
-            ? "없음"
+            ? copy.none
             : game.nextDrawBoost === "dictionary"
               ? "15배"
               : "50배"}
@@ -215,12 +215,12 @@ export function DrawPage() {
             <Text style={s.drawOrbit}>✦</Text>
             <Text style={s.drawOven}>{mode === "basic" ? "🍪" : "💎"}</Text>
             <Text style={s.drawTitle}>
-              {mode === "basic" ? "초코칩 뽑기" : "프리미엄 오븐 뽑기"}
+              {mode === "basic" ? copy.chipDraw : copy.premiumOvenDraw}
             </Text>
             <Text style={s.drawSub}>
               {game.nextDrawBoost === "none"
-                ? "오븐을 획득하고 컬렉션을 강화하세요"
-                : "다음 뽑기에 준비된 확률 보정이 적용됩니다"}
+                ? copy.collectionHint
+                : copy.boostHint}
             </Text>
           </View>
           <View style={s.row}>
@@ -249,13 +249,13 @@ export function DrawPage() {
             <Button title={copy.odds} onPress={() => setShowOdds(true)} />
             {game.dictionaries > 0 && (
               <Button
-                title="사전 사용"
+                title={copy.useDictionary}
                 onPress={() => game.prepareDrawBoost("dictionary")}
               />
             )}
             {game.diaries > 0 && (
               <Button
-                title="일기 사용"
+                title={copy.useDiary}
                 onPress={() => game.prepareDrawBoost("diary")}
               />
             )}
@@ -263,17 +263,16 @@ export function DrawPage() {
         </>
       ) : (
         <>
-          <Text style={s.section}>특성 뽑기</Text>
+          <Text style={s.section}>{copy.traitDraw}</Text>
           <View style={s.card}>
             <Text style={s.cardTitle}>
               {OVENS.find((oven) => oven.id === selected.ovenId)?.name}
             </Text>
             <Text style={s.info}>
-              현재 특성: {selected.trait} · 코어 결정으로 다음 특성을
-              획득합니다.
+              {copy.currentTrait}: {selected.trait} · {copy.traitHint}
             </Text>
             <Button
-              title="특성 뽑기"
+              title={copy.traitDraw}
               disabled={selected.trait === "글리치"}
               onPress={() => game.rollTrait(selected.ovenId)}
             />
@@ -350,7 +349,7 @@ export function DrawPage() {
               </>
             )}
             <Text style={s.resultSparkle}>✦ ✦ ✦</Text>
-            <Text style={s.resultTitle}>{results.length}회 뽑기 결과</Text>
+            <Text style={s.resultTitle}>{results.length} {copy.drawResult}</Text>
             {Object.entries(grouped).map(([id, count]) => {
               const oven = OVENS.find((item) => item.id === id)!;
               return (
@@ -447,7 +446,7 @@ export function DrawPage() {
         <View style={s.resultShade}>
           <ScrollView style={s.oddsCard} contentContainerStyle={s.oddsContent}>
             <Text style={s.resultTitle}>
-              {mode === "premium" ? "프리미엄 확률" : "기본 확률"}
+              {mode === "premium" ? copy.premiumOdds : copy.basicOdds}
             </Text>
             {OVENS.map((oven) => (
               <View key={oven.id} style={s.oddsRow}>
