@@ -147,6 +147,7 @@ export default function App() {
   const ripple = useRef(new Animated.Value(0)).current;
   const bite = useRef(new Animated.Value(0)).current;
   const rainbowSpin = useRef(new Animated.Value(0)).current;
+  const resetFlash = useRef(new Animated.Value(0)).current;
   const { width, height } = useWindowDimensions();
   const phone = width < 500;
   const short = height < 820;
@@ -927,6 +928,11 @@ export default function App() {
               onPress={() => {
                 if (resetStage >= 5) {
                   game.resetGame();
+                  resetFlash.setValue(0);
+                  Animated.sequence([
+                    Animated.timing(resetFlash, { toValue: 0.92, duration: 120, useNativeDriver: true }),
+                    Animated.timing(resetFlash, { toValue: 0, duration: 520, useNativeDriver: true }),
+                  ]).start();
                   setResetStage(0);
                   setSettingsOpen(false);
                 } else setResetStage(resetStage + 1);
@@ -976,6 +982,7 @@ export default function App() {
           </View>
         </View>
       </Modal>
+      <Animated.View pointerEvents="none" style={[s0.resetFlash, { opacity: resetFlash }]} />
       <Modal
         transparent
         animationType="fade"
@@ -1063,6 +1070,7 @@ export default function App() {
 }
 const s0 = StyleSheet.create({
   safe: { flex: 1, backgroundColor: PAPER },
+  resetFlash: { ...StyleSheet.absoluteFill, zIndex: 99, backgroundColor: "#fff9d8" },
   head: {
     height: 115,
     backgroundColor: WINE,
