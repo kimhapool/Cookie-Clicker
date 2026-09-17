@@ -513,6 +513,7 @@ export function AutomationPage() {
             <View style={s.row}>
               <Button
                 title={`${fmt(cost)} ${copy.buy}`}
+                disabled={game.cookies < cost}
                 onPress={() => buyBuilding(building.id)}
               />
               <Button
@@ -540,14 +541,17 @@ export function ExchangePage() {
         <View style={s.row}>
           <Button
             title="1개 교환"
+            disabled={game.cookies < 100000}
             onPress={() => game.exchangeCookies(100000)}
           />
           <Button
             title="10개 교환"
+            disabled={game.cookies < 1000000}
             onPress={() => game.exchangeCookies(1000000)}
           />
           <Button
             title="전부 교환"
+            disabled={game.cookies < 100000}
             onPress={() => game.exchangeCookies(game.cookies)}
           />
         </View>
@@ -557,16 +561,19 @@ export function ExchangePage() {
         <Text style={s.info}>초코칩 10,000개 → 프리미엄 초코칩 1개</Text>
         <Button
           title="프리미엄 초코칩 교환"
+          disabled={game.chocoChips < 10000}
           onPress={() => game.exchangeChips("premium")}
         />
         <Text style={s.info}>초코칩 1,000,000개 → 미래를 담은 사전 1권</Text>
         <Button
           title="미래를 담은 사전 교환"
+          disabled={game.chocoChips < 1000000}
           onPress={() => game.exchangeChips("dictionary")}
         />
         <Text style={s.info}>사전 3권 → 시간 여행자의 일기 1권</Text>
         <Button
           title="시간 여행자의 일기 제작"
+          disabled={game.dictionaries < 3}
           onPress={() => game.exchangeChips("diary")}
         />
       </View>
