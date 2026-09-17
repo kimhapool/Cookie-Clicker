@@ -360,6 +360,27 @@ export function DrawPage() {
       </Modal>
       <Modal transparent animationType="fade" visible={!!flyingOven}>
         <View style={s.flightShade}>
+          <View pointerEvents="none" style={s.flightStars}>
+            {Array.from({ length: 28 }, (_, index) => (
+              <Text
+                key={index}
+                style={[
+                  s.flightStar,
+                  {
+                    left: `${(index * 37 + 9) % 96}%`,
+                    top: `${(index * 61 + 4) % 92}%`,
+                    fontSize: 7 + (index % 4) * 4,
+                    opacity: 0.24 + (index % 5) * 0.14,
+                    color: index % 3 === 0 ? "#ffb9ed" : index % 3 === 1 ? "#8de7ff" : "#fff8c9",
+                  },
+                ]}
+              >
+                {index % 4 === 0 ? "✦" : "·"}
+              </Text>
+            ))}
+          </View>
+          <View pointerEvents="none" style={s.flightNebulaOne} />
+          <View pointerEvents="none" style={s.flightNebulaTwo} />
           {flyingOven && (
             <Animated.View
               style={[
@@ -962,6 +983,10 @@ const s = StyleSheet.create({
     justifyContent: "center",
     overflow: "hidden",
   },
+  flightStars: { ...StyleSheet.absoluteFill },
+  flightStar: { position: "absolute", fontWeight: "900" },
+  flightNebulaOne: { position: "absolute", width: 310, height: 310, borderRadius: 180, top: -130, left: -120, backgroundColor: "#45225d", opacity: 0.42 },
+  flightNebulaTwo: { position: "absolute", width: 370, height: 370, borderRadius: 220, bottom: -230, right: -170, backgroundColor: "#173e73", opacity: 0.45 },
   flightOven: {
     width: 220,
     alignSelf: "center",
