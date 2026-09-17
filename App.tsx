@@ -1441,7 +1441,7 @@ const s0 = StyleSheet.create({
   crumbThree: { top: "50%", left: -3, width: 6, height: 6 },
   gain: {
     position: "absolute",
-    top: -28,
+    top: -10,
     backgroundColor: "#fff8e9",
     borderRadius: 18,
     borderWidth: 2,
