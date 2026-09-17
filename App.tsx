@@ -1001,6 +1001,9 @@ export default function App() {
             <Text style={s0.settingLabel}>
               누적 뽑기 {game.totalDraws.toLocaleString("ko-KR")}
             </Text>
+            <Text style={s0.settingLabel}>
+              초코칩 {game.chocoChips.toLocaleString("ko-KR")} · 프리미엄 초코칩 {game.premiumChips.toLocaleString("ko-KR")}
+            </Text>
             <Text style={s0.settingLabel}>환생 {game.rebirths}회</Text>
             <Text style={s0.settingLabel}>
               {modal.equippedOven}{" "}
