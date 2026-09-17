@@ -390,7 +390,13 @@ export default function App() {
           )}
           <Pressable
             disabled={!game.pendingOffline}
-            onPress={() => game.claimOffline()}
+            onPress={() => {
+              const reward = game.claimOffline();
+              if (reward && game.settings.vibration)
+                Haptics.notificationAsync(
+                  Haptics.NotificationFeedbackType.Success,
+                ).catch(() => undefined);
+            }}
             style={[s0.claim, !game.pendingOffline && s0.claimDisabled]}
           >
             <Text style={s0.claimT}>{text.claim}</Text>
@@ -659,7 +665,12 @@ export default function App() {
                       </View>
                       <Pressable
                         disabled={claimed || unavailable}
-                        onPress={() => game.claimMail(id)}
+                        onPress={() => {
+                          if (game.claimMail(id) && game.settings.vibration)
+                            Haptics.notificationAsync(
+                              Haptics.NotificationFeedbackType.Success,
+                            ).catch(() => undefined);
+                        }}
                         style={[
                           s0.mailButton,
                           (claimed || unavailable) && s0.claimDisabled,
@@ -715,7 +726,15 @@ export default function App() {
                       </View>
                       <Pressable
                         disabled={!done || claimed}
-                        onPress={() => game.claimMission(missionId)}
+                        onPress={() => {
+                          if (
+                            game.claimMission(missionId) &&
+                            game.settings.vibration
+                          )
+                            Haptics.notificationAsync(
+                              Haptics.NotificationFeedbackType.Success,
+                            ).catch(() => undefined);
+                        }}
                         style={[
                           s0.mailButton,
                           (!done || claimed) && s0.claimDisabled,
