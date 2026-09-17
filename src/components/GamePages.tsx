@@ -1,5 +1,6 @@
 import {
   Animated,
+  Image,
   Modal,
   Pressable,
   ScrollView,
@@ -8,7 +9,7 @@ import {
   View,
   useWindowDimensions,
 } from "react-native";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import * as Haptics from "expo-haptics";
 import { BUILDINGS } from "../data/buildings";
 import { UPGRADES } from "../data/upgrades";
@@ -90,6 +91,7 @@ export function DrawPage() {
   const [secretPhase, setSecretPhase] = useState(2);
   const [showOdds, setShowOdds] = useState(false);
   const flyProgress = useRef(new Animated.Value(0)).current;
+  const secretPulse = useRef(new Animated.Value(0)).current;
   const { width } = useWindowDimensions();
   const draw = (premium = false, count = 1) => {
     const drawnIds: string[] = [];
@@ -140,6 +142,29 @@ export function DrawPage() {
   const flyingOven = flying.length
     ? OVENS.find((oven) => oven.id === flying[flightIndex])
     : null;
+  useEffect(() => {
+    if (!hasSecret) {
+      secretPulse.stopAnimation();
+      secretPulse.setValue(0);
+      return;
+    }
+    const animation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(secretPulse, {
+          toValue: 1,
+          duration: 620,
+          useNativeDriver: true,
+        }),
+        Animated.timing(secretPulse, {
+          toValue: 0,
+          duration: 620,
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+    animation.start();
+    return () => animation.stop();
+  }, [hasSecret, secretPulse]);
   return (
     <Page title={`🎰 ${copy.drawTitle}`}>
       <View style={s.hero}>
@@ -254,7 +279,32 @@ export function DrawPage() {
           <View style={[s.resultCard, hasSecret && s.secretCard]}>
             {hasSecret && (
               <>
-                <Text style={s.secretSlash}>╲ ╱ ╲ ╱ ╲ ╱</Text>
+                <View pointerEvents="none" style={s.secretSlashField}>
+                  {Array.from({ length: 12 }, (_, index) => (
+                    <Animated.View
+                      key={index}
+                      style={[
+                        s.secretSlashLine,
+                        {
+                          top: `${(index * 17) % 94}%`,
+                          opacity: secretPulse.interpolate({
+                            inputRange: [0, 0.5, 1],
+                            outputRange: [0.16, 0.96, 0.25],
+                          }),
+                          transform: [
+                            {
+                              translateX: secretPulse.interpolate({
+                                inputRange: [0, 1],
+                                outputRange: [-120 + (index % 3) * 38, 130 - (index % 4) * 32],
+                              }),
+                            },
+                            { rotate: `${index % 2 ? -28 : 28}deg` },
+                          ],
+                        },
+                      ]}
+                    />
+                  ))}
+                </View>
                 {secretPhase < 2 ? (
                   <View style={s.secretFragments}>
                     {Array.from({ length: 57 }, (_, index) => (
@@ -263,18 +313,29 @@ export function DrawPage() {
                         style={[
                           s.secretPiece,
                           {
-                            left: `${(index * 37) % 92}%`,
-                            top: `${(index * 61) % 88}%`,
+                            left: `${secretPhase === 0 ? (index * 37) % 92 : 42 + ((index % 7) - 3) * 3}%`,
+                            top: `${secretPhase === 0 ? (index * 61) % 88 : 42 + (Math.floor(index / 7) - 4) * 3}%`,
                             opacity: secretPhase === 0 ? 0.9 : 0.35,
+                            transform: [
+                              {
+                                rotate: `${secretPhase === 0 ? (index * 29) % 180 : 0}deg`,
+                              },
+                            ],
                           },
                         ]}
                       />
                     ))}
                   </View>
                 ) : (
-                  <Text style={s.secretCookie}>🍪</Text>
+                  <View style={s.secretCookieHalo}>
+                    <Image
+                      source={require("../../assets/cookie-cutout.png")}
+                      style={s.secretCookieImage}
+                      resizeMode="contain"
+                    />
+                  </View>
                 )}
-                <Text style={s.secretSlash}>╱ ╲ ╱ ╲ ╱ ╲</Text>
+                <Text style={s.secretReveal}>∞ SECRET OVEN ∞</Text>
               </>
             )}
             <Text style={s.resultSparkle}>✦ ✦ ✦</Text>
@@ -833,16 +894,42 @@ const s = StyleSheet.create({
   },
   secretShade: { backgroundColor: "#050308" },
   secretCard: { backgroundColor: "#120820", borderColor: "#ff4dcc" },
-  secretCookie: {
-    fontSize: 90,
-    textShadowColor: "#ff4dcc",
-    textShadowRadius: 26,
+  secretSlashField: {
+    ...StyleSheet.absoluteFill,
+    overflow: "hidden",
+    borderRadius: 28,
   },
-  secretSlash: {
-    color: "#ff63e8",
-    fontSize: 23,
+  secretSlashLine: {
+    position: "absolute",
+    left: "-28%",
+    width: "160%",
+    height: 4,
+    borderRadius: 4,
+    backgroundColor: "#ff75ec",
+    shadowColor: "#49ddff",
+    shadowOpacity: 1,
+    shadowRadius: 11,
+  },
+  secretCookieHalo: {
+    width: 158,
+    height: 158,
+    borderRadius: 79,
+    backgroundColor: "#ffe163",
+    borderWidth: 6,
+    borderColor: "#ff62d8",
+    shadowColor: "#58ddff",
+    shadowOpacity: 1,
+    shadowRadius: 28,
+    elevation: 20,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  secretCookieImage: { width: 140, height: 140 },
+  secretReveal: {
+    color: "#fff0a2",
+    fontSize: 13,
+    letterSpacing: 3,
     fontWeight: "900",
-    letterSpacing: 5,
   },
   secretFragments: {
     width: 170,
