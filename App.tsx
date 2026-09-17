@@ -558,6 +558,11 @@ export default function App() {
                   ]}
                 />
                 <Cookie size={cookieSize} onPress={tapCookie} />
+                {lastGain > 0 && (
+                  <Text pointerEvents="none" style={s0.gain}>
+                    +{lastGain.toLocaleString("ko-KR")}
+                  </Text>
+                )}
                 <Animated.View
                   pointerEvents="none"
                   style={[
@@ -595,9 +600,6 @@ export default function App() {
                   </>
                 )}
               </View>
-              {lastGain > 0 && (
-                <Text style={s0.gain}>+{lastGain.toLocaleString("ko-KR")}</Text>
-              )}
               <Text style={s0.tap}>{text.tapCookie}</Text>
             </View>
             <View style={[s0.right, short && s0.rightShort]}>
@@ -1416,7 +1418,7 @@ const s0 = StyleSheet.create({
   crumbThree: { top: "50%", left: -3, width: 6, height: 6 },
   gain: {
     position: "absolute",
-    top: 3,
+    top: -28,
     backgroundColor: "#fff8e9",
     borderRadius: 18,
     borderWidth: 2,
