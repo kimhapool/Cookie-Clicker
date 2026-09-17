@@ -146,6 +146,7 @@ export default function App() {
   const shownAchievements = useRef(new Set<string>());
   const ripple = useRef(new Animated.Value(0)).current;
   const bite = useRef(new Animated.Value(0)).current;
+  const rainbowSpin = useRef(new Animated.Value(0)).current;
   const { width, height } = useWindowDimensions();
   const phone = width < 500;
   const short = height < 820;
@@ -249,6 +250,22 @@ export default function App() {
       return () => clearTimeout(timer);
     }
   }, [game.taps, game.buildings, game.rebirths, game.totalDraws]);
+  useEffect(() => {
+    if (tapStage !== 3) {
+      rainbowSpin.stopAnimation();
+      rainbowSpin.setValue(0);
+      return;
+    }
+    const animation = Animated.loop(
+      Animated.timing(rainbowSpin, {
+        toValue: 1,
+        duration: 1800,
+        useNativeDriver: true,
+      }),
+    );
+    animation.start();
+    return () => animation.stop();
+  }, [rainbowSpin, tapStage]);
   const tapCookie = () => {
     const gain = game.click();
     const now = Date.now();
@@ -484,18 +501,45 @@ export default function App() {
                 ]}
               >
                 {tapStage > 0 && (
-                  <LinearGradient
-                    colors={
-                      tapStage === 3
-                        ? ["#ff4dcc", "#ffca45", "#35b9ff", "#9e62ff"]
-                        : tapStage === 2
-                          ? ["#ff9b46", "#d34b71"]
-                          : ["#ffcf52", "#ff8a4a"]
-                    }
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={s0.tapAura}
-                  />
+                  tapStage === 3 ? (
+                    <Animated.View
+                      style={[
+                        s0.tapAura,
+                        {
+                          transform: [
+                            {
+                              rotate: rainbowSpin.interpolate({
+                                inputRange: [0, 1],
+                                outputRange: ["0deg", "360deg"],
+                              }),
+                            },
+                          ],
+                        },
+                      ]}
+                    >
+                      <LinearGradient
+                        colors={["#ff4dcc", "#ffca45", "#35b9ff", "#9e62ff"]}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}
+                        style={s0.auraFill}
+                      />
+                    </Animated.View>
+                  ) : (
+                    <LinearGradient
+                      colors={tapStage === 2 ? ["#ff9b46", "#d34b71"] : ["#ffcf52", "#ff8a4a"]}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                      style={s0.tapAura}
+                    />
+                  )
+                )}
+                {tapStage === 3 && (
+                  <>
+                    <Text pointerEvents="none" style={[s0.sparkle, s0.sparkleOne]}>✦</Text>
+                    <Text pointerEvents="none" style={[s0.sparkle, s0.sparkleTwo]}>✧</Text>
+                    <Text pointerEvents="none" style={[s0.sparkle, s0.sparkleThree]}>✦</Text>
+                    <Text pointerEvents="none" style={[s0.sparkle, s0.sparkleFour]}>✧</Text>
+                  </>
                 )}
                 <Animated.View
                   pointerEvents="none"
@@ -1306,7 +1350,20 @@ const s0 = StyleSheet.create({
     justifyContent: "center",
     position: "relative",
   },
-  tapAura: { position: "absolute", inset: 0, borderRadius: 999, opacity: 0.78 },
+  tapAura: { position: "absolute", inset: 0, borderRadius: 999, opacity: 0.78, overflow: "hidden" },
+  auraFill: { flex: 1, borderRadius: 999 },
+  sparkle: {
+    position: "absolute",
+    zIndex: 6,
+    color: "#fff7af",
+    fontSize: 23,
+    textShadowColor: "#ff54d6",
+    textShadowRadius: 8,
+  },
+  sparkleOne: { top: -4, left: "16%" },
+  sparkleTwo: { top: "22%", right: -6 },
+  sparkleThree: { bottom: 2, left: -4 },
+  sparkleFour: { bottom: "18%", right: "8%" },
   ripple: {
     position: "absolute",
     width: "86%",
