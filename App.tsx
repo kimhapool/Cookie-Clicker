@@ -39,14 +39,16 @@ const WINE = "#dbc3a0",
 function Cookie({
   small = false,
   onPress,
+  size,
 }: {
   small?: boolean;
   onPress?: () => void;
+  size?: number;
 }) {
   const { width, height } = useWindowDimensions();
   const s = small
     ? 54
-    : Math.min(190, Math.max(124, width * 0.46), Math.max(124, height * 0.19));
+    : size ?? Math.min(190, Math.max(124, width * 0.46), Math.max(124, height * 0.19));
   if (!small)
     return (
       <Pressable onPress={onPress} style={{ width: s, height: s }}>
@@ -151,17 +153,17 @@ export default function App() {
   const { width, height } = useWindowDimensions();
   const phone = width < 500;
   const short = height < 820;
-  const cookieSize = Math.min(
-    190,
-    Math.max(124, width * 0.46),
-    Math.max(124, height * 0.19),
-  );
   const game = useGameStore();
   const text = labels[game.settings.language ?? "ko"];
   const home = homeText[game.settings.language ?? "ko"];
   const modal = modalText[game.settings.language ?? "ko"];
   const ownedBuildings = BUILDINGS.filter(
     (building) => (game.buildings[building.id] || 0) > 0,
+  );
+  const cookieSize = Math.min(
+    ownedBuildings.length ? 154 : 190,
+    Math.max(ownedBuildings.length ? 112 : 124, width * 0.46),
+    Math.max(ownedBuildings.length ? 112 : 124, height * (ownedBuildings.length ? 0.165 : 0.19)),
   );
   const popPlayer = useAudioPlayer(require("./assets/audio/5D.wav"));
   const drumPlayer = useAudioPlayer(require("./assets/audio/MV.wav"));
@@ -476,7 +478,17 @@ export default function App() {
               </Pressable>
             </View>
             <View style={s0.cookieZone}>
-              <View style={s0.shadow} />
+              <View
+                style={[
+                  s0.shadow,
+                  {
+                    width: cookieSize * 1.45,
+                    height: Math.max(36, cookieSize * 0.32),
+                    borderRadius: cookieSize,
+                    transform: [{ translateY: cookieSize * 0.57 }],
+                  },
+                ]}
+              />
               <View
                 style={[
                   s0.cookieStage,
@@ -544,7 +556,7 @@ export default function App() {
                     },
                   ]}
                 />
-                <Cookie onPress={tapCookie} />
+                <Cookie size={cookieSize} onPress={tapCookie} />
                 <Animated.View
                   pointerEvents="none"
                   style={[
