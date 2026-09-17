@@ -20,7 +20,7 @@ import { getClickGain, getCps, useGameStore } from "./src/store/useGameStore";
 import { OVENS } from "./src/data/ovens";
 import { BUILDINGS } from "./src/data/buildings";
 import { MISSIONS, type MissionId } from "./src/data/missions";
-import { homeText, labels } from "./src/i18n/translations";
+import { homeText, labels, modalText } from "./src/i18n/translations";
 import { compactNumber } from "./src/utils/numbers";
 import {
   AchievementsPage,
@@ -158,6 +158,7 @@ export default function App() {
   const game = useGameStore();
   const text = labels[game.settings.language ?? "ko"];
   const home = homeText[game.settings.language ?? "ko"];
+  const modal = modalText[game.settings.language ?? "ko"];
   const ownedBuildings = BUILDINGS.filter(
     (building) => (game.buildings[building.id] || 0) > 0,
   );
@@ -378,13 +379,13 @@ export default function App() {
             <Text style={s0.offSub}>
               {game.pendingOffline
                 ? `${Math.floor(game.offlineSeconds / 60)}분 ${game.offlineSeconds % 60}초 · +${game.pendingOffline.toLocaleString("ko-KR")}`
-                : "오프라인 보상을 준비 중입니다"}
+                : modal.offlineWaiting}
             </Text>
           </View>
           {ownedBuildings.length > 0 && (
             <View style={[s0.automationVista, short && s0.automationVistaShort]}>
               <View style={s0.automationVistaHead}>
-                <Text style={s0.automationVistaTitle}>{home.auto} 베이커리</Text>
+                <Text style={s0.automationVistaTitle}>{home.auto} {modal.autoBakery}</Text>
                 <Text style={s0.automationVistaCps}>+{compactNumber(cps)}/초</Text>
               </View>
               <View style={s0.automationVistaItems}>
@@ -690,7 +691,7 @@ export default function App() {
         <View style={s0.modalShade}>
           <View style={s0.modalCard}>
             <Text style={s0.modalTitle}>
-              {panel === "mail" ? "📬 우편함" : "📋 오늘의 미션"}
+              {panel === "mail" ? `📬 ${modal.mailbox}` : `📋 ${modal.todayMissions}`}
             </Text>
             {panel === "mail"
               ? [
@@ -722,11 +723,7 @@ export default function App() {
                         ]}
                       >
                         <Text style={s0.languageText}>
-                          {claimed
-                            ? "받음"
-                            : unavailable
-                              ? "안내 완료 후"
-                              : "받기"}
+                          {claimed ? modal.claimed : unavailable ? modal.guideDone : modal.claim}
                         </Text>
                       </Pressable>
                     </View>
@@ -756,7 +753,7 @@ export default function App() {
                           {mission.title}
                         </Text>
                         <Text style={s0.mailSub}>
-                          {value}/{goal} · 보상 {mission.reward}
+                          {value}/{goal} · {modal.reward} {mission.reward}
                         </Text>
                         <View style={s0.missionTrack}>
                           <View
@@ -786,14 +783,14 @@ export default function App() {
                         ]}
                       >
                         <Text style={s0.languageText}>
-                          {claimed ? "받음" : "받기"}
+                          {claimed ? modal.claimed : modal.claim}
                         </Text>
                       </Pressable>
                     </View>
                   );
                 })}
             <Pressable onPress={() => setPanel(null)} style={s0.closeButton}>
-              <Text style={s0.closeText}>닫기</Text>
+              <Text style={s0.closeText}>{modal.close}</Text>
             </Pressable>
           </View>
         </View>
@@ -806,23 +803,23 @@ export default function App() {
       >
         <View style={s0.modalShade}>
           <View style={s0.modalCard}>
-            <Text style={s0.modalTitle}>⚙️ 설정</Text>
+            <Text style={s0.modalTitle}>⚙️ {modal.settings}</Text>
             <View style={s0.settingRow}>
-              <Text style={s0.settingLabel}>효과음</Text>
+              <Text style={s0.settingLabel}>{modal.sound}</Text>
               <Switch
                 value={game.settings.sound}
                 onValueChange={(sound) => game.updateSettings({ sound })}
               />
             </View>
             <View style={s0.settingRow}>
-              <Text style={s0.settingLabel}>배경 음악</Text>
+              <Text style={s0.settingLabel}>{modal.music}</Text>
               <Switch
                 value={game.settings.music}
                 onValueChange={(music) => game.updateSettings({ music })}
               />
             </View>
             <View style={s0.settingRow}>
-              <Text style={s0.settingLabel}>음악 분위기</Text>
+              <Text style={s0.settingLabel}>{modal.musicMood}</Text>
               <Pressable
                 onPress={() =>
                   game.updateSettings({
@@ -836,13 +833,13 @@ export default function App() {
               >
                 <Text style={s0.languageText}>
                   {game.settings.musicStyle === "exciting"
-                    ? "흥겨움"
-                    : "차분함"}
+                    ? modal.exciting
+                    : modal.calm}
                 </Text>
               </Pressable>
             </View>
             <View style={s0.settingRow}>
-              <Text style={s0.settingLabel}>진동</Text>
+              <Text style={s0.settingLabel}>{modal.vibration}</Text>
               <Switch
                 value={game.settings.vibration}
                 onValueChange={(vibration) =>
@@ -851,7 +848,7 @@ export default function App() {
               />
             </View>
             <View style={s0.settingRow}>
-              <Text style={s0.settingLabel}>탭 효과음</Text>
+              <Text style={s0.settingLabel}>{modal.tapSound}</Text>
               <Pressable
                 onPress={() => {
                   const sounds = ["pop", "drum", "bite", "crumble"] as const;
@@ -878,7 +875,7 @@ export default function App() {
               </Pressable>
             </View>
             <View style={s0.settingRow}>
-              <Text style={s0.settingLabel}>언어</Text>
+              <Text style={s0.settingLabel}>{modal.language}</Text>
               <Pressable
                 onPress={() => {
                   const order = [
@@ -917,16 +914,7 @@ export default function App() {
             </View>
             {resetStage > 0 && (
               <Text style={s0.resetWarning}>
-                {
-                  [
-                    "",
-                    "데이터를 삭제하시겠습니까?",
-                    "정말로요?",
-                    "진짜 정말로 리셋하시겠습니까?",
-                    "정말로 지금까지 한 것을 삭제하시겠습니까? 노력한 기록입니다.",
-                    "정말 진짜로 삭제하시겠습니까? 해금한 도전과제와 노력이 사라지며 되돌릴 수 없습니다. 마지막 경고입니다.",
-                  ][resetStage]
-                }
+                {modal.resetPrompts[resetStage]}
               </Text>
             )}
             <Pressable
@@ -940,7 +928,7 @@ export default function App() {
               style={s0.resetButton}
             >
               <Text style={s0.closeText}>
-                {resetStage >= 5 ? "삭제 완료" : "데이터 초기화"}
+                {resetStage >= 5 ? modal.resetDone : modal.reset}
               </Text>
             </Pressable>
             <Pressable
@@ -950,7 +938,7 @@ export default function App() {
               }}
               style={s0.closeButton}
             >
-              <Text style={s0.closeText}>닫기</Text>
+              <Text style={s0.closeText}>{modal.close}</Text>
             </Pressable>
           </View>
         </View>
@@ -958,17 +946,9 @@ export default function App() {
       <Modal transparent animationType="fade" visible={!game.tutorialComplete}>
         <View pointerEvents="box-none" style={s0.tutorialShade}>
           <View pointerEvents="auto" style={s0.tutorialCard}>
-            <Text style={s0.modalTitle}>🍪 베이커리 안내</Text>
+            <Text style={s0.modalTitle}>🍪 {modal.bakeryGuide}</Text>
             <Text style={s0.tutorialText}>
-              {
-                [
-                  "가운데 쿠키를 눌러 첫 쿠키를 구워보세요.",
-                  "자동화 오븐을 15개까지 늘려보세요.",
-                  "초코칩으로 첫 오븐 뽑기에 도전해 보세요.",
-                  "우편함에서 안내 완료 보상을 확인해 보세요.",
-                  "안내를 완료했습니다. 우편함에서 초코칩 10개를 받아가세요.",
-                ][Math.min(game.tutorialStep, 4)]
-              }
+              {modal.tutorialSteps[Math.min(game.tutorialStep, 4)]}
             </Text>
             <Pressable
               disabled={!tutorialReady}
@@ -978,13 +958,13 @@ export default function App() {
               <Text style={s0.closeText}>
                 {tutorialReady
                   ? game.tutorialStep >= 4
-                    ? "완료"
-                    : "다음"
+                    ? modal.complete
+                    : modal.next
                   : game.tutorialStep === 0
-                    ? "쿠키를 눌러주세요"
+                    ? modal.tapCookie
                     : game.tutorialStep === 1
                       ? `${totalBuildings}/15`
-                      : "뽑기를 진행해주세요"}
+                      : modal.drawFirst}
               </Text>
             </Pressable>
           </View>
@@ -998,7 +978,7 @@ export default function App() {
       >
         <View style={s0.modalShade}>
           <View style={s0.modalCard}>
-            <Text style={s0.modalTitle}>🍪 베이커 프로필</Text>
+            <Text style={s0.modalTitle}>🍪 {modal.profile}</Text>
             <Text style={s0.settingLabel}>
               누적 쿠키 {game.totalCookies.toLocaleString("ko-KR")}
             </Text>
@@ -1010,15 +990,15 @@ export default function App() {
             </Text>
             <Text style={s0.settingLabel}>환생 {game.rebirths}회</Text>
             <Text style={s0.settingLabel}>
-              장착 오븐{" "}
+              {modal.equippedOven}{" "}
               {OVENS.find((oven) => oven.id === game.equippedOvenId)?.name ??
-                "없음"}
+                modal.none}
             </Text>
             <Pressable
               onPress={() => setProfileOpen(false)}
               style={s0.closeButton}
             >
-              <Text style={s0.closeText}>닫기</Text>
+              <Text style={s0.closeText}>{modal.close}</Text>
             </Pressable>
           </View>
         </View>
@@ -1031,8 +1011,8 @@ export default function App() {
       >
         <View style={s0.modalShade}>
           <View style={s0.modalCard}>
-            <Text style={s0.modalTitle}>😇 환생</Text>
-            <Text style={s0.settingLabel}>현재 환생 {game.rebirths}회</Text>
+            <Text style={s0.modalTitle}>😇 {home.rebirth}</Text>
+            <Text style={s0.settingLabel}>{modal.currentRebirth} {game.rebirths}</Text>
             <Text style={s0.settingLabel}>
               현재 배율 x{Math.pow(1.5, game.rebirths).toFixed(2)} → 다음 x
               {Math.pow(1.5, game.rebirths + 1).toFixed(2)}
@@ -1067,7 +1047,7 @@ export default function App() {
                   s0.claimDisabled,
               ]}
             >
-              <Text style={s0.closeText}>환생하기</Text>
+              <Text style={s0.closeText}>{modal.rebirthNow}</Text>
             </Pressable>
           </View>
         </View>
