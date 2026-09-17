@@ -173,6 +173,12 @@ export default function App() {
         : game.tutorialStep === 2
           ? game.totalDraws >= 1
           : true;
+  const canOpenTab = (index: number) => {
+    if (game.tutorialComplete || index === 0) return true;
+    if (game.tutorialStep === 1) return index === 3;
+    if (game.tutorialStep === 2) return index === 1 || index === 3;
+    return game.tutorialStep >= 3;
+  };
   useEffect(() => {
     const timer = setInterval(() => { const gain = game.tick(1); if (gain) { setAutomationGain(gain); setTimeout(() => setAutomationGain(0), 700); } }, 1000);
     return () => clearInterval(timer);
@@ -590,8 +596,14 @@ export default function App() {
         {tabs.map((t, i) => (
           <Pressable
             key={t}
+            disabled={!canOpenTab(i)}
             onPress={() => setTab(i)}
-            style={[s0.tab, phone && s0.tabPhone, tab === i && s0.active]}
+            style={[
+              s0.tab,
+              phone && s0.tabPhone,
+              tab === i && s0.active,
+              !canOpenTab(i) && s0.tabLocked,
+            ]}
           >
             <Text
               numberOfLines={2}
@@ -1431,6 +1443,7 @@ const s0 = StyleSheet.create({
     justifyContent: "center",
   },
   tabPhone: { borderRadius: 13 },
+  tabLocked: { opacity: 0.35 },
   active: { backgroundColor: GOLD },
   tabT: {
     fontSize: 13,
