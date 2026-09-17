@@ -140,3 +140,19 @@ export const pageText: Record<GameLanguage, PageText> = {
   de: { drawTitle: "Ofen-Ziehung", basic: "Basis", premium: "Premium", trait: "Merkmal", drawOnce: "1 Ziehung", drawTen: "10 Ziehungen", drawAll: "Alle ziehen", odds: "Chancen", confirm: "Bestätigen", close: "Schließen", buy: "Kaufen", sell: "Verkaufen", equip: "Ausrüsten", fuse: "Verschmelzen", dismantle: "Zerlegen", ascending: "Seltenheit auf", descending: "Seltenheit ab", rebirth: "Wiedergeburt", active: "Aktiv", idle: "Bereit" },
   ru: { drawTitle: "Призыв печи", basic: "Обычный", premium: "Премиум", trait: "Свойство", drawOnce: "Призвать 1", drawTen: "Призвать 10", drawAll: "Призвать всё", odds: "Шансы", confirm: "Подтвердить", close: "Закрыть", buy: "Купить", sell: "Продать", equip: "Надеть", fuse: "Слить", dismantle: "Разобрать", ascending: "Редкость по возр.", descending: "Редкость по убыв.", rebirth: "Перерождение", active: "Активно", idle: "Ожидание" },
 };
+
+type HomeText = {
+  click: string; rebirth: string; doublePotion: string; feverTime: string;
+  mail: string; missions: string; odds: string; ownedOvens: string;
+  chips: string; buff: string; waiting: string; workshop: string;
+  todayOvenSub: string; auto: string;
+};
+export const homeText: Record<GameLanguage, HomeText> = {
+  ko: { click:"클릭", rebirth:"환생", doublePotion:"더블 포션", feverTime:"피버 타임", mail:"우편", missions:"미션", odds:"확률", ownedOvens:"보유 오븐", chips:"초코칩", buff:"버프", waiting:"대기", workshop:"쿠키 작업대", todayOvenSub:"오늘의 오븐을 확인하세요", auto:"자동" },
+  en: { click:"Tap", rebirth:"Rebirth", doublePotion:"Double Potion", feverTime:"Fever Time", mail:"Mail", missions:"Missions", odds:"Odds", ownedOvens:"Ovens", chips:"Choco Chips", buff:"Buff", waiting:"Idle", workshop:"Cookie Workshop", todayOvenSub:"See today's oven", auto:"Auto" },
+  ja: { click:"タップ", rebirth:"転生", doublePotion:"ダブルポーション", feverTime:"フィーバータイム", mail:"メール", missions:"ミッション", odds:"確率", ownedOvens:"所持オーブン", chips:"チョコチップ", buff:"バフ", waiting:"待機", workshop:"クッキー作業台", todayOvenSub:"今日のオーブンを確認", auto:"自動" },
+  zh: { click:"点击", rebirth:"转生", doublePotion:"双倍药水", feverTime:"狂热时间", mail:"邮件", missions:"任务", odds:"概率", ownedOvens:"拥有烤炉", chips:"巧克力筹码", buff:"增益", waiting:"待命", workshop:"曲奇工坊", todayOvenSub:"查看今日烤炉", auto:"自动" },
+  ar: { click:"نقر", rebirth:"ولادة جديدة", doublePotion:"جرعة مضاعفة", feverTime:"وقت الحمى", mail:"البريد", missions:"المهام", odds:"الاحتمالات", ownedOvens:"الأفران", chips:"رقائق الشوكولاتة", buff:"تعزيز", waiting:"انتظار", workshop:"ورشة الكعك", todayOvenSub:"تحقق من فرن اليوم", auto:"تلقائي" },
+  de: { click:"Klick", rebirth:"Wiedergeburt", doublePotion:"Doppeltrank", feverTime:"Fieberzeit", mail:"Post", missions:"Missionen", odds:"Chancen", ownedOvens:"Öfen", chips:"Schoko-Chips", buff:"Bonus", waiting:"Bereit", workshop:"Keks-Werkstatt", todayOvenSub:"Ofen des Tages ansehen", auto:"Auto" },
+  ru: { click:"Нажатие", rebirth:"Перерождение", doublePotion:"Двойное зелье", feverTime:"Время лихорадки", mail:"Почта", missions:"Задания", odds:"Шансы", ownedOvens:"Печи", chips:"Шоко-чипы", buff:"Бафф", waiting:"Ожидание", workshop:"Кондитерская", todayOvenSub:"Посмотреть печь дня", auto:"Авто" },
+};

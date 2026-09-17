@@ -20,7 +20,7 @@ import { getClickGain, getCps, useGameStore } from "./src/store/useGameStore";
 import { OVENS } from "./src/data/ovens";
 import { BUILDINGS } from "./src/data/buildings";
 import { MISSIONS, type MissionId } from "./src/data/missions";
-import { labels } from "./src/i18n/translations";
+import { homeText, labels } from "./src/i18n/translations";
 import { compactNumber } from "./src/utils/numbers";
 import {
   AchievementsPage,
@@ -156,6 +156,7 @@ export default function App() {
   );
   const game = useGameStore();
   const text = labels[game.settings.language ?? "ko"];
+  const home = homeText[game.settings.language ?? "ko"];
   const ownedBuildings = BUILDINGS.filter(
     (building) => (game.buildings[building.id] || 0) > 0,
   );
@@ -366,7 +367,7 @@ export default function App() {
           {ownedBuildings.length > 0 && (
             <View style={[s0.automationVista, short && s0.automationVistaShort]}>
               <View style={s0.automationVistaHead}>
-                <Text style={s0.automationVistaTitle}>자동화 베이커리</Text>
+                <Text style={s0.automationVistaTitle}>{home.auto} 베이커리</Text>
                 <Text style={s0.automationVistaCps}>+{compactNumber(cps)}/초</Text>
               </View>
               <View style={s0.automationVistaItems}>
@@ -404,10 +405,10 @@ export default function App() {
         </View>
         <View style={[s0.board, short && s0.boardShort]}>
           <View style={s0.statRow}>
-            <Stat a="클릭" b={`+${getClickGain(game)}`} />
-            <Stat a="환생" b={`x${Math.pow(1.5, game.rebirths).toFixed(2)}`} />
+            <Stat a={home.click} b={`+${getClickGain(game)}`} />
+            <Stat a={home.rebirth} b={`x${Math.pow(1.5, game.rebirths).toFixed(2)}`} />
           </View>
-          <Text style={s0.work}>쿠키 작업대</Text>
+          <Text style={s0.work}>{home.workshop}</Text>
           <View style={[s0.boostRow, short && s0.boostRowShort]}>
             <Pressable
               disabled={game.boostUntil > Date.now() || game.cookies < 5000}
@@ -417,7 +418,7 @@ export default function App() {
                 game.boostUntil > Date.now() && s0.claimDisabled,
               ]}
             >
-              <Text style={s0.boostTitle}>🔥 더블 포션</Text>
+              <Text style={s0.boostTitle}>🔥 {home.doublePotion}</Text>
               <Text style={s0.boostSub}>
                 {game.boostUntil > clock
                   ? `${Math.ceil((game.boostUntil - clock) / 1000)}초`
@@ -433,7 +434,7 @@ export default function App() {
                 game.boostUntil > Date.now() && s0.claimDisabled,
               ]}
             >
-              <Text style={s0.boostTitle}>🌈 피버 타임</Text>
+              <Text style={s0.boostTitle}>🌈 {home.feverTime}</Text>
               <Text style={s0.boostSub}>
                 {game.boostUntil > clock
                   ? `${Math.ceil((game.boostUntil - clock) / 1000)}초`
@@ -445,14 +446,14 @@ export default function App() {
             <View style={[s0.left, short && s0.leftShort]}>
               <Side
                 e="📬"
-                t="우편"
+                t={home.mail}
                 compact={short}
                 disabled={!game.tutorialComplete && game.tutorialStep < 3}
                 onPress={() => setPanel("mail")}
               />
               <Side
                 e="📋"
-                t="미션"
+                t={home.missions}
                 compact={short}
                 disabled={!game.tutorialComplete}
                 onPress={() => setPanel("missions")}
@@ -463,7 +464,7 @@ export default function App() {
                 style={[s0.side, short && s0.sideShort, !game.tutorialComplete && s0.sideLocked]}
               >
                 <Text style={s0.sideE}>😇</Text>
-                <Text style={s0.sideT}>환생</Text>
+                <Text style={s0.sideT}>{home.rebirth}</Text>
               </Pressable>
               <Pressable
                 disabled={!canOpenTab(1)}
@@ -471,7 +472,7 @@ export default function App() {
                 style={[s0.side, short && s0.sideShort, !canOpenTab(1) && s0.sideLocked]}
               >
                 <Text style={s0.sideE}>🎲</Text>
-                <Text style={s0.sideT}>확률</Text>
+                <Text style={s0.sideT}>{home.odds}</Text>
               </Pressable>
             </View>
             <View style={s0.cookieZone}>
@@ -559,7 +560,7 @@ export default function App() {
               )}
               {automationGain > 0 && (
                 <Text style={s0.automationGain}>
-                  자동 +{compactNumber(automationGain)}
+                  {home.auto} +{compactNumber(automationGain)}
                 </Text>
               )}
               <Text style={s0.tap}>{text.tapCookie}</Text>
@@ -568,23 +569,23 @@ export default function App() {
               <Stat
                 compact
                 tight={short}
-                a="보유 오븐"
+                a={home.ownedOvens}
                 b={`${game.ovens.filter((o) => o.level > 0).length}종`}
               />
               <Stat
                 compact
                 tight={short}
-                a="초코칩"
+                a={home.chips}
                 b={`${game.chocoChips}개`}
               />
               <Stat
                 compact
                 tight={short}
-                a="버프"
+                a={home.buff}
                 b={
                   game.boostUntil > clock
                     ? `${game.boostMultiplier}배 ${Math.ceil((game.boostUntil - clock) / 1000)}초`
-                    : "대기"
+                    : home.waiting
                 }
               />
             </View>
@@ -597,7 +598,7 @@ export default function App() {
             <Text style={s0.promoE}>🎁</Text>
             <View>
               <Text style={s0.promoT}>{text.todayOven}</Text>
-              <Text style={s0.promoS}>오늘의 오븐을 확인하세요</Text>
+              <Text style={s0.promoS}>{home.todayOvenSub}</Text>
             </View>
             <Text style={s0.arrow}>›</Text>
           </Pressable>
