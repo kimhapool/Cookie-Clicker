@@ -9,6 +9,7 @@ import {
   Modal,
   Pressable,
   SafeAreaView,
+  ScrollView,
   StyleSheet,
   Text,
   Switch,
@@ -597,11 +598,6 @@ export default function App() {
               {lastGain > 0 && (
                 <Text style={s0.gain}>+{lastGain.toLocaleString("ko-KR")}</Text>
               )}
-              {automationGain > 0 && (
-                <Text style={s0.automationGain}>
-                  {home.auto} +{compactNumber(automationGain)}
-                </Text>
-              )}
               <Text style={s0.tap}>{text.tapCookie}</Text>
             </View>
             <View style={[s0.right, short && s0.rightShort]}>
@@ -635,14 +631,36 @@ export default function App() {
                 <Text style={s0.automationVistaTitle}>{home.auto} {modal.autoBakery}</Text>
                 <Text style={s0.automationVistaCps}>+{compactNumber(cps)}/초</Text>
               </View>
-              <View style={s0.automationVistaItems}>
+              {automationGain > 0 && (
+                <Text style={s0.automationVistaGain}>+{compactNumber(automationGain)}</Text>
+              )}
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s0.automationVistaItems}>
                 {ownedBuildings.map((building, index) => (
-                  <View key={building.id} style={s0.automationVistaItem}>
-                    <Text style={[s0.automationVistaEmoji, { fontSize: 25 + index * 3 }]}>{building.emoji}</Text>
+                  <View key={building.id} style={s0.automationVistaLot}>
+                    <View style={s0.automationVistaStack}>
+                      {Array.from({ length: Math.min(3, game.buildings[building.id]) }, (_, stackIndex) => (
+                        <Text
+                          key={stackIndex}
+                          style={[
+                            s0.automationVistaEmoji,
+                            {
+                              fontSize: 26 + index * 3,
+                              transform: [
+                                { translateX: stackIndex * 5 },
+                                { translateY: -stackIndex * 3 },
+                              ],
+                              opacity: 1 - stackIndex * 0.18,
+                            },
+                          ]}
+                        >
+                          {building.emoji}
+                        </Text>
+                      ))}
+                    </View>
                     <Text style={s0.automationVistaCount}>×{game.buildings[building.id]}</Text>
                   </View>
                 ))}
-              </View>
+              </ScrollView>
             </View>
           )}
           <Pressable
@@ -1439,19 +1457,6 @@ const s0 = StyleSheet.create({
     borderColor: "#8a4614",
   },
   tap: { marginTop: 12, color: INK, fontWeight: "900", fontSize: 16 },
-  automationGain: {
-    position: "absolute",
-    top: 28,
-    borderRadius: 15,
-    backgroundColor: "#e8fff0",
-    borderWidth: 2,
-    borderColor: "#56a86a",
-    paddingHorizontal: 9,
-    paddingVertical: 3,
-    color: "#23713b",
-    fontSize: 13,
-    fontWeight: "900",
-  },
   automationVista: {
     minHeight: 58,
     marginTop: 7,
@@ -1475,16 +1480,19 @@ const s0 = StyleSheet.create({
     marginTop: 2,
     flexDirection: "row",
     alignItems: "flex-end",
-    gap: 13,
+    gap: 8,
+    paddingRight: 5,
   },
-  automationVistaItem: { alignItems: "center", justifyContent: "flex-end" },
-  automationVistaEmoji: { lineHeight: 31 },
+  automationVistaLot: { minWidth: 52, minHeight: 40, alignItems: "center", justifyContent: "flex-end", borderRadius: 11, backgroundColor: "#ecf7ff", borderWidth: 1, borderColor: "#bedcf1", paddingHorizontal: 5 },
+  automationVistaStack: { height: 29, minWidth: 30, flexDirection: "row", alignItems: "flex-end", justifyContent: "center" },
+  automationVistaEmoji: { lineHeight: 31, marginLeft: -10 },
   automationVistaCount: {
-    marginTop: -7,
+    marginTop: -6,
     color: INK,
     fontSize: 10,
     fontWeight: "900",
   },
+  automationVistaGain: { position: "absolute", right: 12, bottom: 9, color: "#23713b", fontWeight: "900", fontSize: 12, backgroundColor: "#e8fff0", borderRadius: 10, paddingHorizontal: 6, paddingVertical: 2, borderWidth: 1, borderColor: "#56a86a", zIndex: 3 },
   promo: {
     height: 82,
     borderRadius: 26,
