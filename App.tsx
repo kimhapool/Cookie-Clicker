@@ -148,6 +148,9 @@ export default function App() {
   );
   const game = useGameStore();
   const text = labels[game.settings.language ?? "ko"];
+  const ownedBuildings = BUILDINGS.filter(
+    (building) => (game.buildings[building.id] || 0) > 0,
+  );
   const popPlayer = useAudioPlayer(require("./assets/audio/5D.wav"));
   const drumPlayer = useAudioPlayer(require("./assets/audio/MV.wav"));
   const bitePlayer = useAudioPlayer(require("./assets/audio/om.wav"));
@@ -338,6 +341,31 @@ export default function App() {
                 : "오프라인 보상을 준비 중입니다"}
             </Text>
           </View>
+          {ownedBuildings.length > 0 && (
+            <View style={[s0.automationVista, short && s0.automationVistaShort]}>
+              <View style={s0.automationVistaHead}>
+                <Text style={s0.automationVistaTitle}>자동화 베이커리</Text>
+                <Text style={s0.automationVistaCps}>+{compactNumber(cps)}/초</Text>
+              </View>
+              <View style={s0.automationVistaItems}>
+                {ownedBuildings.map((building, index) => (
+                  <View key={building.id} style={s0.automationVistaItem}>
+                    <Text
+                      style={[
+                        s0.automationVistaEmoji,
+                        { fontSize: 25 + index * 3 },
+                      ]}
+                    >
+                      {building.emoji}
+                    </Text>
+                    <Text style={s0.automationVistaCount}>
+                      ×{game.buildings[building.id]}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          )}
           <Pressable
             disabled={!game.pendingOffline}
             onPress={() => game.claimOffline()}
@@ -1308,6 +1336,39 @@ const s0 = StyleSheet.create({
     paddingVertical: 3,
     color: "#23713b",
     fontSize: 13,
+    fontWeight: "900",
+  },
+  automationVista: {
+    minHeight: 58,
+    marginTop: 7,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 18,
+    backgroundColor: "#d9edff",
+    borderWidth: 2,
+    borderColor: "#bad5ef",
+  },
+  automationVistaShort: { minHeight: 46, marginTop: 4, paddingVertical: 4 },
+  automationVistaHead: { flexDirection: "row", alignItems: "center" },
+  automationVistaTitle: { color: INK, fontSize: 12, fontWeight: "900" },
+  automationVistaCps: {
+    marginLeft: "auto",
+    color: "#28764a",
+    fontSize: 12,
+    fontWeight: "900",
+  },
+  automationVistaItems: {
+    marginTop: 2,
+    flexDirection: "row",
+    alignItems: "flex-end",
+    gap: 13,
+  },
+  automationVistaItem: { alignItems: "center", justifyContent: "flex-end" },
+  automationVistaEmoji: { lineHeight: 31 },
+  automationVistaCount: {
+    marginTop: -7,
+    color: INK,
+    fontSize: 10,
     fontWeight: "900",
   },
   promo: {

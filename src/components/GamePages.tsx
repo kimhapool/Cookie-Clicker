@@ -374,6 +374,26 @@ export function DrawPage() {
 
 export function AutomationPage() {
   const game = useGameStore();
+  const [arriving, setArriving] = useState<string | null>(null);
+  const arrival = useRef(new Animated.Value(0)).current;
+  const buyBuilding = (id: string) => {
+    if (!game.buyBuilding(id)) return;
+    setArriving(id);
+    arrival.setValue(0);
+    Animated.sequence([
+      Animated.timing(arrival, {
+        toValue: 0.72,
+        duration: 180,
+        useNativeDriver: true,
+      }),
+      Animated.spring(arrival, {
+        toValue: 1,
+        friction: 4,
+        tension: 150,
+        useNativeDriver: true,
+      }),
+    ]).start(() => setArriving(null));
+  };
   return (
     <Page title="🏭 자동화">
       <Text style={s.info}>
@@ -391,10 +411,45 @@ export function AutomationPage() {
             <Text style={s.info}>
               보유 {count}개 · 초당 {fmt(building.baseCps * count)}
             </Text>
+            {count > 0 && (
+              <View style={s.productionLine}>
+                {Array.from({ length: Math.min(count, 8) }, (_, index) => {
+                  const isArriving = arriving === building.id && index === count - 1;
+                  return (
+                    <Animated.Text
+                      key={`${building.id}-${index}`}
+                      style={[
+                        s.productionIcon,
+                        isArriving && {
+                          opacity: arrival,
+                          transform: [
+                            {
+                              translateX: arrival.interpolate({
+                                inputRange: [0, 0.72, 1],
+                                outputRange: [-90, 8, 0],
+                              }),
+                            },
+                            {
+                              scale: arrival.interpolate({
+                                inputRange: [0, 0.72, 1],
+                                outputRange: [0.25, 1.26, 1],
+                              }),
+                            },
+                          ],
+                        },
+                      ]}
+                    >
+                      {building.emoji}
+                    </Animated.Text>
+                  );
+                })}
+                {count > 8 && <Text style={s.productionMore}>+{count - 8}</Text>}
+              </View>
+            )}
             <View style={s.row}>
               <Button
                 title={`${fmt(cost)} 구매`}
-                onPress={() => game.buyBuilding(building.id)}
+                onPress={() => buyBuilding(building.id)}
               />
               <Button
                 title="판매"
@@ -703,6 +758,19 @@ const s = StyleSheet.create({
   },
   disabled: { opacity: 0.4 },
   buttonText: { fontWeight: "900", color: "#401923" },
+  productionLine: {
+    minHeight: 43,
+    paddingHorizontal: 8,
+    borderRadius: 13,
+    backgroundColor: "#e8f4ff",
+    borderWidth: 1,
+    borderColor: "#c8dced",
+    flexDirection: "row",
+    alignItems: "center",
+    overflow: "hidden",
+  },
+  productionIcon: { fontSize: 27, marginRight: -4 },
+  productionMore: { marginLeft: 7, color: "#3c627c", fontWeight: "900" },
   oven: {
     backgroundColor: "#fff",
     borderLeftWidth: 6,
