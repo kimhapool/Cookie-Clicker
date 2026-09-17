@@ -529,6 +529,7 @@ export const useGameStore = create<Game>()(
       resetGame: () => set(baseState()),
       checkOffline: () => {
         const state = get();
+        if (state.pendingOffline > 0) return;
         const seconds = Math.min(
           4 * 60 * 60,
           Math.max(0, Math.floor((Date.now() - state.lastSavedAt) / 1000)),

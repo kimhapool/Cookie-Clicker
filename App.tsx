@@ -4,6 +4,7 @@ import { useAudioPlayer } from "expo-audio";
 import { LinearGradient } from "expo-linear-gradient";
 import {
   Animated,
+  AppState,
   Image,
   Modal,
   Pressable,
@@ -135,6 +136,7 @@ export default function App() {
   const [clock, setClock] = useState(Date.now());
   const [tapStage, setTapStage] = useState(0);
   const tapTimes = useRef<number[]>([]);
+  const appState = useRef(AppState.currentState);
   const shownAchievements = useRef(new Set<string>());
   const ripple = useRef(new Animated.Value(0)).current;
   const bite = useRef(new Animated.Value(0)).current;
@@ -181,6 +183,14 @@ export default function App() {
   }, []);
   useEffect(() => {
     game.checkOffline();
+  }, [game.checkOffline]);
+  useEffect(() => {
+    const subscription = AppState.addEventListener("change", (nextState) => {
+      const wasInactive = /inactive|background/.test(appState.current ?? "");
+      if (wasInactive && nextState === "active") game.checkOffline();
+      appState.current = nextState;
+    });
+    return () => subscription.remove();
   }, [game.checkOffline]);
   useEffect(() => {
     game.ensureAllOvens();
