@@ -412,7 +412,7 @@ export default function App() {
           tab !== 0 && s0.hidden,
         ]}
       >
-        <View style={[s0.off, short && s0.offShort]}>
+        {game.pendingOffline > 0 && <View style={[s0.off, short && s0.offShort]}>
           <View>
             <Text style={s0.offTitle}>{text.offline}</Text>
             <Text style={s0.offSub}>
@@ -434,7 +434,7 @@ export default function App() {
           >
             <Text style={s0.claimT}>{text.claim}</Text>
           </Pressable>
-        </View>
+        </View>}
         <View style={[s0.board, short && s0.boardShort]}>
           <View style={s0.statRow}>
             <Stat a={home.click} b={`+${getClickGain(game)}`} />
