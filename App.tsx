@@ -21,7 +21,7 @@ import { getClickGain, getCps, useGameStore } from "./src/store/useGameStore";
 import { OVENS } from "./src/data/ovens";
 import { BUILDINGS } from "./src/data/buildings";
 import { MISSIONS, type MissionId } from "./src/data/missions";
-import { homeText, labels, modalText } from "./src/i18n/translations";
+import { accountText, homeText, labels, modalText, ovenDisplayName } from "./src/i18n/translations";
 import { compactNumber } from "./src/utils/numbers";
 import {
   AchievementsPage,
@@ -179,6 +179,7 @@ export default function App() {
   const text = labels[game.settings.language ?? "ko"];
   const home = homeText[game.settings.language ?? "ko"];
   const modal = modalText[game.settings.language ?? "ko"];
+  const account = accountText[game.settings.language ?? "ko"];
   const ownedBuildings = BUILDINGS.filter(
     (building) => (game.buildings[building.id] || 0) > 0,
   );
@@ -403,7 +404,7 @@ export default function App() {
             <Text style={s0.offTitle}>{text.offline}</Text>
             <Text style={s0.offSub}>
               {game.pendingOffline
-                ? `${Math.floor(game.offlineSeconds / 60)}분 ${game.offlineSeconds % 60}초 · +${game.pendingOffline.toLocaleString("ko-KR")}`
+                ? `${Math.floor(game.offlineSeconds / 60)}${account.minutes} ${game.offlineSeconds % 60}${account.seconds} · +${game.pendingOffline.toLocaleString("ko-KR")}`
                 : modal.offlineWaiting}
             </Text>
           </View>
@@ -1037,22 +1038,21 @@ export default function App() {
           <View style={s0.modalCard}>
             <Text style={s0.modalTitle}>🍪 {modal.profile}</Text>
             <Text style={s0.settingLabel}>
-              누적 쿠키 {game.totalCookies.toLocaleString("ko-KR")}
+              {account.totalCookies} {game.totalCookies.toLocaleString("ko-KR")}
             </Text>
             <Text style={s0.settingLabel}>
-              누적 터치 {game.taps.toLocaleString("ko-KR")}
+              {account.totalTaps} {game.taps.toLocaleString("ko-KR")}
             </Text>
             <Text style={s0.settingLabel}>
-              누적 뽑기 {game.totalDraws.toLocaleString("ko-KR")}
+              {account.totalDraws} {game.totalDraws.toLocaleString("ko-KR")}
             </Text>
             <Text style={s0.settingLabel}>
-              초코칩 {game.chocoChips.toLocaleString("ko-KR")} · 프리미엄 초코칩 {game.premiumChips.toLocaleString("ko-KR")}
+              {account.chips} {game.chocoChips.toLocaleString("ko-KR")} · {account.premiumChips} {game.premiumChips.toLocaleString("ko-KR")}
             </Text>
-            <Text style={s0.settingLabel}>환생 {game.rebirths}회</Text>
+            <Text style={s0.settingLabel}>{account.rebirths} {game.rebirths}</Text>
             <Text style={s0.settingLabel}>
               {modal.equippedOven}{" "}
-              {OVENS.find((oven) => oven.id === game.equippedOvenId)?.name ??
-                modal.none}
+              {(() => { const oven = OVENS.find((item) => item.id === game.equippedOvenId); return oven ? ovenDisplayName(oven.id, oven.name, game.settings.language ?? "ko") : modal.none; })()}
             </Text>
             <Pressable
               onPress={() => setProfileOpen(false)}
@@ -1074,12 +1074,11 @@ export default function App() {
             <Text style={s0.modalTitle}>😇 {home.rebirth}</Text>
             <Text style={s0.settingLabel}>{modal.currentRebirth} {game.rebirths}</Text>
             <Text style={s0.settingLabel}>
-              현재 배율 x{Math.pow(1.5, game.rebirths).toFixed(2)} → 다음 x
+              {account.multiplier} x{Math.pow(1.5, game.rebirths).toFixed(2)} → {account.nextMultiplier} x
               {Math.pow(1.5, game.rebirths + 1).toFixed(2)}
             </Text>
             <Text style={s0.mailSub}>
-              현재 쿠키만 초기화되며 오븐, 자동화, 강화와 모든 영구 진행은
-              유지됩니다.
+              {account.rebirthKeeps}
             </Text>
             <View style={s0.progressTrack}>
               <View
