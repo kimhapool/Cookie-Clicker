@@ -376,22 +376,22 @@ export default function App() {
         </Pressable>
         <View style={[s0.res, phone && s0.resPhone]}>
           <Text numberOfLines={1} style={[s0.resT, phone && s0.resTPhone]}>
-            🍪 {compactNumber(n)}
+            🍪 {compactNumber(n, game.settings.language ?? "ko")}
           </Text>
         </View>
         <View style={[s0.res, phone && s0.resPhone]}>
           <Text numberOfLines={1} style={[s0.resT, phone && s0.resTPhone]}>
-            🍫 {compactNumber(game.chocoChips)}
+            🍫 {compactNumber(game.chocoChips, game.settings.language ?? "ko")}
           </Text>
         </View>
         <View style={[s0.res, phone && s0.resPhone]}>
           <Text numberOfLines={1} style={[s0.resT, phone && s0.resTPhone]}>
-            💎 {compactNumber(game.premiumChips)}
+            💎 {compactNumber(game.premiumChips, game.settings.language ?? "ko")}
           </Text>
         </View>
         <View style={[s0.res, s0.cps, phone && s0.resPhone]}>
           <Text numberOfLines={1} style={[s0.resT, phone && s0.resTPhone]}>
-            ⚡ CPS {compactNumber(cps)}
+            ⚡ CPS {compactNumber(cps, game.settings.language ?? "ko")}
           </Text>
         </View>
         <Pressable
@@ -666,10 +666,10 @@ export default function App() {
             <View style={[s0.automationVista, short && s0.automationVistaShort]}>
               <View style={s0.automationVistaHead}>
                 <Text style={s0.automationVistaTitle}>{home.auto} {modal.autoBakery}</Text>
-                <Text style={s0.automationVistaCps}>+{compactNumber(cps)}{home.perSecond}</Text>
+                <Text style={s0.automationVistaCps}>+{compactNumber(cps, game.settings.language ?? "ko")}{home.perSecond}</Text>
               </View>
               {automationGain > 0 && (
-                <Text style={s0.automationVistaGain}>+{compactNumber(automationGain)}</Text>
+                <Text style={s0.automationVistaGain}>+{compactNumber(automationGain, game.settings.language ?? "ko")}</Text>
               )}
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s0.automationVistaItems}>
                 {ownedBuildings.map((building, index) => (
