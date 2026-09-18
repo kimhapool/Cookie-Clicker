@@ -292,6 +292,20 @@ export const accountText: Record<GameLanguage, AccountText> = {
   ru:{totalCookies:"Всего печений",totalTaps:"Всего нажатий",totalDraws:"Всего призывов",chips:"Шоко-чипы",premiumChips:"Премиум-чипы",rebirths:"Перерождения",multiplier:"Текущий множитель",nextMultiplier:"Следующий",rebirthKeeps:"Сбрасываются только текущие печенья. Печи, автоматизация, улучшения и постоянный прогресс сохраняются.",minutes:"мин",seconds:"с"},
 };
 
+const missionContent: Record<GameLanguage, Record<string, [string, string]>> = {
+  ko:{tap:["쿠키 100회 굽기","쿠키 500개"],stockpile:["쿠키 100,000개 보유하기","초코칩 2개"],building:["자동화 오븐 15개 구매하기","초코칩 3개"],chip:["초코칩 20개 모으기","쿠키 2,000개"],draw:["오븐 10회 뽑기","초코칩 3개"],upgrade:["영구 강화 1회 완료","쿠키 4,000개"],rebirth:["첫 환생 완료","프리미엄 초코칩 1개"],lifetime:["누적 쿠키 1,000,000개 생산","미래를 담은 사전 1권"]},
+  en:{tap:["Bake 100 cookies","500 cookies"],stockpile:["Hold 100,000 cookies","2 choco chips"],building:["Buy 15 automation ovens","3 choco chips"],chip:["Collect 20 choco chips","2,000 cookies"],draw:["Draw 10 ovens","3 choco chips"],upgrade:["Complete 1 permanent upgrade","4,000 cookies"],rebirth:["Complete your first rebirth","1 premium chip"],lifetime:["Produce 1,000,000 lifetime cookies","1 Future-Bound Dictionary"]},
+  ja:{tap:["クッキーを100回焼く","クッキー500枚"],stockpile:["クッキー100,000枚を所持","チョコチップ2個"],building:["自動化オーブンを15台購入","チョコチップ3個"],chip:["チョコチップを20個集める","クッキー2,000枚"],draw:["オーブンを10回引く","チョコチップ3個"],upgrade:["恒久強化を1回完了","クッキー4,000枚"],rebirth:["初めて転生する","プレミアムチップ1個"],lifetime:["累計1,000,000枚生産","未来を秘めた辞典1冊"]},
+  zh:{tap:["烘焙 100 次曲奇","500 曲奇"],stockpile:["持有 100,000 曲奇","2 巧克力筹码"],building:["购买 15 台自动化烤炉","3 巧克力筹码"],chip:["收集 20 巧克力筹码","2,000 曲奇"],draw:["抽取 10 次烤炉","3 巧克力筹码"],upgrade:["完成 1 次永久强化","4,000 曲奇"],rebirth:["完成首次转生","1 高级筹码"],lifetime:["累计生产 1,000,000 曲奇","1 本未来词典"]},
+  ar:{tap:["اخبز 100 كعكة","500 كعكة"],stockpile:["احتفظ بـ100,000 كعكة","رقاقتان"],building:["اشترِ 15 فرناً تلقائياً","3 رقائق"],chip:["اجمع 20 رقاقة","2,000 كعكة"],draw:["اسحب 10 أفران","3 رقائق"],upgrade:["أكمل ترقية دائمة واحدة","4,000 كعكة"],rebirth:["أكمل أول ولادة","رقاقة مميزة واحدة"],lifetime:["أنتج 1,000,000 كعكة إجمالاً","قاموس مستقبل واحد"]},
+  de:{tap:["100 Kekse backen","500 Kekse"],stockpile:["100.000 Kekse besitzen","2 Schoko-Chips"],building:["15 Automatiköfen kaufen","3 Schoko-Chips"],chip:["20 Schoko-Chips sammeln","2.000 Kekse"],draw:["10 Öfen ziehen","3 Schoko-Chips"],upgrade:["1 dauerhaftes Upgrade abschließen","4.000 Kekse"],rebirth:["Erste Wiedergeburt abschließen","1 Premium-Chip"],lifetime:["1.000.000 Kekse insgesamt produzieren","1 Zukunftswörterbuch"]},
+  ru:{tap:["Испечь 100 печений","500 печений"],stockpile:["Иметь 100 000 печений","2 шоко-чипа"],building:["Купить 15 автопечей","3 шоко-чипа"],chip:["Собрать 20 шоко-чипов","2 000 печений"],draw:["Призвать 10 печей","3 шоко-чипа"],upgrade:["Сделать 1 постоянное улучшение","4 000 печений"],rebirth:["Завершить первое перерождение","1 премиум-чип"],lifetime:["Произвести 1 000 000 печений","1 Словарь будущего"]},
+};
+export function missionDisplay(id: string, fallbackTitle: string, fallbackReward: string, language: GameLanguage) {
+  const content = missionContent[language][id];
+  return content ? { title: content[0], reward: content[1] } : { title: fallbackTitle, reward: fallbackReward };
+}
+
 type AutomationText = { info: string; owned: string; perSecond: string };
 export const automationText: Record<GameLanguage, AutomationText> = {
   ko: { info:"자동화 오븐은 초당 쿠키를 생산합니다. 판매 시 구매가의 80%를 돌려받습니다.",owned:"보유",perSecond:"초당" },

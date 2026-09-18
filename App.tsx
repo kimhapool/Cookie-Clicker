@@ -21,7 +21,7 @@ import { getClickGain, getCps, useGameStore } from "./src/store/useGameStore";
 import { OVENS } from "./src/data/ovens";
 import { BUILDINGS } from "./src/data/buildings";
 import { MISSIONS, type MissionId } from "./src/data/missions";
-import { accountText, homeText, labels, modalText, ovenDisplayName } from "./src/i18n/translations";
+import { accountText, homeText, labels, missionDisplay, modalText, ovenDisplayName } from "./src/i18n/translations";
 import { compactNumber } from "./src/utils/numbers";
 import {
   AchievementsPage,
@@ -793,6 +793,12 @@ export default function App() {
                     lifetime: game.totalCookies,
                   };
                   const missionId = mission.id;
+                  const missionCopy = missionDisplay(
+                    mission.id,
+                    mission.title,
+                    mission.reward,
+                    game.settings.language ?? "ko",
+                  );
                   const value = missionProgress[missionId];
                   const goal = mission.target;
                   const done = value >= goal;
@@ -802,10 +808,10 @@ export default function App() {
                       <View>
                         <Text style={s0.mailTitle}>
                           {done ? "✅ " : "🎯 "}
-                          {mission.title}
+                          {missionCopy.title}
                         </Text>
                         <Text style={s0.mailSub}>
-                          {value}/{goal} · {modal.reward} {mission.reward}
+                          {value}/{goal} · {modal.reward} {missionCopy.reward}
                         </Text>
                         <View style={s0.missionTrack}>
                           <View
