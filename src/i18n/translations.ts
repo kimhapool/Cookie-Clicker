@@ -306,6 +306,20 @@ export function missionDisplay(id: string, fallbackTitle: string, fallbackReward
   return content ? { title: content[0], reward: content[1] } : { title: fallbackTitle, reward: fallbackReward };
 }
 
+const mailContent: Record<GameLanguage, Record<string, [string, string]>> = {
+  ko:{tutorial:["안내 완료 선물","초코칩 10개"],welcome:["베이커리 개업 선물","쿠키 500개"],chips:["초코칩 꾸러미","쿠키 3,000개"],moon:["달빛 배송","쿠키 2,500개"]},
+  en:{tutorial:["Guide completion gift","10 choco chips"],welcome:["Bakery opening gift","500 cookies"],chips:["Choco chip bundle","3,000 cookies"],moon:["Moonlight delivery","2,500 cookies"]},
+  ja:{tutorial:["案内完了ギフト","チョコチップ10個"],welcome:["ベーカリー開店ギフト","クッキー500枚"],chips:["チョコチップの束","クッキー3,000枚"],moon:["月明かりの配達","クッキー2,500枚"]},
+  zh:{tutorial:["引导完成礼物","10 巧克力筹码"],welcome:["烘焙坊开业礼物","500 曲奇"],chips:["巧克力筹码礼包","3,000 曲奇"],moon:["月光配送","2,500 曲奇"]},
+  ar:{tutorial:["هدية إكمال الدليل","10 رقائق"],welcome:["هدية افتتاح المخبز","500 كعكة"],chips:["حزمة رقائق الشوكولاتة","3,000 كعكة"],moon:["توصيل ضوء القمر","2,500 كعكة"]},
+  de:{tutorial:["Geschenk für Leitfadenabschluss","10 Schoko-Chips"],welcome:["Geschenk zur Bäckereieröffnung","500 Kekse"],chips:["Schoko-Chip-Paket","3.000 Kekse"],moon:["Mondlicht-Lieferung","2.500 Kekse"]},
+  ru:{tutorial:["Подарок за завершение обучения","10 шоко-чипов"],welcome:["Подарок к открытию пекарни","500 печений"],chips:["Набор шоко-чипов","3 000 печений"],moon:["Лунная доставка","2 500 печений"]},
+};
+export function mailDisplay(id: string, fallbackTitle: string, fallbackReward: string, language: GameLanguage) {
+  const content = mailContent[language][id];
+  return content ? { title: content[0], reward: content[1] } : { title: fallbackTitle, reward: fallbackReward };
+}
+
 type AutomationText = { info: string; owned: string; perSecond: string };
 export const automationText: Record<GameLanguage, AutomationText> = {
   ko: { info:"자동화 오븐은 초당 쿠키를 생산합니다. 판매 시 구매가의 80%를 돌려받습니다.",owned:"보유",perSecond:"초당" },

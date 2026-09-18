@@ -21,7 +21,7 @@ import { getClickGain, getCps, useGameStore } from "./src/store/useGameStore";
 import { OVENS } from "./src/data/ovens";
 import { BUILDINGS } from "./src/data/buildings";
 import { MISSIONS, type MissionId } from "./src/data/missions";
-import { accountText, homeText, labels, missionDisplay, modalText, ovenDisplayName } from "./src/i18n/translations";
+import { accountText, homeText, labels, mailDisplay, missionDisplay, modalText, ovenDisplayName } from "./src/i18n/translations";
 import { compactNumber } from "./src/utils/numbers";
 import {
   AchievementsPage,
@@ -752,14 +752,15 @@ export default function App() {
                   ["chips", "초코칩 꾸러미", "쿠키 3,000개"],
                   ["moon", "달빛 배송", "쿠키 2,500개"],
                 ].map(([id, title, reward]) => {
+                  const mailCopy = mailDisplay(id, title, reward, game.settings.language ?? "ko");
                   const claimed = game.claimedMail.includes(id);
                   const unavailable =
                     id === "tutorial" && !game.tutorialComplete;
                   return (
                     <View key={id} style={s0.mailRow}>
                       <View>
-                        <Text style={s0.mailTitle}>{title}</Text>
-                        <Text style={s0.mailSub}>{reward}</Text>
+                        <Text style={s0.mailTitle}>{mailCopy.title}</Text>
+                        <Text style={s0.mailSub}>{mailCopy.reward}</Text>
                       </View>
                       <Pressable
                         disabled={claimed || unavailable}
