@@ -236,6 +236,34 @@ export const traitNames: Record<GameLanguage, Record<string, string>> = {
   ru: { "없음": "Нет", "샤이니": "Сияние", "반전": "Инверсия", "글리치": "Глитч" },
 };
 
+const buildingNames: Record<GameLanguage, string[]> = {
+  ko:["가정용 오븐","동네 제과점","쿠키 공장","조립 라인","연구소","우주 베이커리"],
+  en:["Home Oven","Neighborhood Bakery","Cookie Factory","Assembly Line","Research Lab","Space Bakery"],
+  ja:["家庭用オーブン","街の洋菓子店","クッキー工場","組立ライン","研究所","宇宙ベーカリー"],
+  zh:["家用烤炉","社区糕点店","曲奇工厂","装配线","研究所","太空烘焙坊"],
+  ar:["فرن منزلي","مخبز الحي","مصنع الكعك","خط التجميع","مختبر الأبحاث","مخبز الفضاء"],
+  de:["Hausofen","Nachbarschaftsbäckerei","Keksfabrik","Montagelinie","Forschungslabor","Weltraumbäckerei"],
+  ru:["Домашняя печь","Районная пекарня","Фабрика печенья","Сборочная линия","Лаборатория","Космическая пекарня"],
+};
+export function buildingDisplayName(id: string, fallback: string, language: GameLanguage) {
+  return buildingNames[language][["grandma_oven","bakery","cookie_factory","assembly_line","research_lab","space_bakery"].indexOf(id)] ?? fallback;
+}
+
+const upgradeNames: Record<GameLanguage, [string, string][]> = {
+  ko:[["장인의 손끝","쿠키 클릭 보상이 단계마다 20% 증가합니다."],["황금 컨베이어","자동화 생산량이 단계마다 25% 증가합니다."],["달콤한 유약","모든 생산량이 단계마다 10% 증가합니다."]],
+  en:[["Artisan's Touch","Tap rewards increase by 20% per level."],["Golden Conveyor","Automation production increases by 25% per level."],["Sweet Glaze","All production increases by 10% per level."]],
+  ja:[["職人の指先","タップ報酬がレベルごとに20%増加します。"],["黄金のコンベア","自動化生産がレベルごとに25%増加します。"],["甘いグレーズ","すべての生産量がレベルごとに10%増加します。"]],
+  zh:[["匠人之手","每级点击奖励提高 20%。"],["黄金传送带","每级自动化产量提高 25%。"],["甜蜜糖衣","每级所有产量提高 10%。"]],
+  ar:[["لمسة الحرفي","ترتفع مكافآت النقر 20٪ لكل مستوى."],["السير الذهبي","يرتفع إنتاج الأتمتة 25٪ لكل مستوى."],["طلاء حلو","يرتفع كل الإنتاج 10٪ لكل مستوى."]],
+  de:[["Handwerkers Hand","Tippbelohnungen steigen pro Stufe um 20 %."],["Goldenes Förderband","Automatikproduktion steigt pro Stufe um 25 %."],["Süße Glasur","Gesamte Produktion steigt pro Stufe um 10 %."]],
+  ru:[["Рука мастера","Награда за нажатие растёт на 20% за уровень."],["Золотой конвейер","Автопроизводство растёт на 25% за уровень."],["Сладкая глазурь","Всё производство растёт на 10% за уровень."]],
+};
+export function upgradeDisplay(id: string, fallbackName: string, fallbackDescription: string, language: GameLanguage) {
+  const index = ["click","cps","global"].indexOf(id);
+  const text = upgradeNames[language][index];
+  return text ? { name:text[0], description:text[1] } : { name:fallbackName, description:fallbackDescription };
+}
+
 type ProgressText = {
   exchangeInfo: string; cookiesOwned: string; exchangeOne: string; exchangeTen: string; exchangeAll: string;
   premiumExchange: string; premiumCost: string; dictionaryCost: string; dictionaryExchange: string;

@@ -15,7 +15,7 @@ import { BUILDINGS } from "../data/buildings";
 import { UPGRADES } from "../data/upgrades";
 import { OVENS, RARITY_COLORS } from "../data/ovens";
 import { useGameStore } from "../store/useGameStore";
-import { automationText, inventoryText, labels, ovenDisplayName, pageText, progressText, traitNames } from "../i18n/translations";
+import { automationText, buildingDisplayName, inventoryText, labels, ovenDisplayName, pageText, progressText, traitNames, upgradeDisplay } from "../i18n/translations";
 
 const fmt = (value: number) => Math.floor(value).toLocaleString("ko-KR");
 const BASIC_WEIGHT = {
@@ -469,8 +469,9 @@ export function DrawPage() {
 
 export function AutomationPage() {
   const game = useGameStore();
-  const copy = pageText[game.settings.language ?? "ko"];
-  const words = automationText[game.settings.language ?? "ko"];
+  const language = game.settings.language ?? "ko";
+  const copy = pageText[language];
+  const words = automationText[language];
   const [arriving, setArriving] = useState<string | null>(null);
   const arrival = useRef(new Animated.Value(0)).current;
   const buyBuilding = (id: string) => {
@@ -500,7 +501,7 @@ export function AutomationPage() {
         return (
           <View key={building.id} style={s.card}>
             <Text style={s.cardTitle}>
-              {building.emoji} {building.name}
+              {building.emoji} {buildingDisplayName(building.id, building.name, language)}
             </Text>
             <Text style={s.info}>
               {words.owned} {count} · {words.perSecond} {fmt(building.baseCps * count)}
@@ -692,8 +693,9 @@ export function InventoryPage() {
 
 export function UpgradesPage() {
   const game = useGameStore();
-  const copy = pageText[game.settings.language ?? "ko"];
-  const words = progressText[game.settings.language ?? "ko"];
+  const language = game.settings.language ?? "ko";
+  const copy = pageText[language];
+  const words = progressText[language];
   const need = 100000 * Math.pow(5, game.rebirths);
   return (
     <Page title={`⚡ ${labels[game.settings.language ?? "ko"].upgrades}`}>
@@ -717,6 +719,7 @@ export function UpgradesPage() {
       </View>
       <Text style={s.section}>{words.permanent}</Text>
       {UPGRADES.map((upgrade) => {
+        const display = upgradeDisplay(upgrade.id, upgrade.name, upgrade.description, language);
         const level = game.upgrades[upgrade.id];
         const cost = Math.floor(
           upgrade.baseCost * Math.pow(upgrade.growth, level),
@@ -724,9 +727,9 @@ export function UpgradesPage() {
         return (
           <View key={upgrade.id} style={s.card}>
             <Text style={s.cardTitle}>
-              {upgrade.emoji} {upgrade.name} · Lv.{level}
+              {upgrade.emoji} {display.name} · Lv.{level}
             </Text>
-            <Text style={s.info}>{upgrade.description}</Text>
+            <Text style={s.info}>{display.description}</Text>
             <Button
               title={words.upgradeCost.replace("{cost}", fmt(cost))}
               disabled={game.cookies < cost}
