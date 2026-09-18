@@ -1020,7 +1020,7 @@ export default function App() {
           </View>
         </View>
       </Modal>
-      <Modal transparent animationType="fade" visible={!game.tutorialComplete}>
+      {!game.tutorialComplete && (
         <View pointerEvents="box-none" style={s0.tutorialShade}>
           <View pointerEvents="auto" style={s0.tutorialCard}>
             <Text style={s0.modalTitle}>🍪 {modal.bakeryGuide}</Text>
@@ -1046,7 +1046,7 @@ export default function App() {
             </Pressable>
           </View>
         </View>
-      </Modal>
+      )}
       <Animated.View pointerEvents="none" style={[s0.resetFlash, { opacity: resetFlash }]} />
       <Modal
         transparent
@@ -1311,7 +1311,9 @@ const s0 = StyleSheet.create({
     lineHeight: 20,
   },
   tutorialShade: {
-    flex: 1,
+    ...StyleSheet.absoluteFill,
+    zIndex: 30,
+    elevation: 30,
     justifyContent: "flex-start",
     alignItems: "center",
     paddingTop: 88,
