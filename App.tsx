@@ -342,7 +342,7 @@ export default function App() {
       player.play();
     }
   };
-  const tabs = [
+  const fullTabs = [
     `🏠\n${text.home}`,
     `🎰\n${text.draw}`,
     `🎒\n${text.inventory}`,
@@ -351,6 +351,19 @@ export default function App() {
     `⚡\n${text.upgrades}`,
     `🏆\n${text.achievements}`,
   ];
+  const compactTabLabels: Record<string, string[]> = {
+    ko: ["홈", "뽑기", "가방", "자동", "교환", "강화", "업적"],
+    en: ["Home", "Draw", "Bag", "Auto", "Exch.", "Upg.", "Ach."],
+    ja: ["ホーム", "ガチャ", "持ち物", "自動", "交換", "強化", "実績"],
+    zh: ["主页", "抽取", "背包", "自动", "兑换", "强化", "成就"],
+    ar: ["الرئيسية", "سحب", "حقيبة", "تلقائي", "تبادل", "ترقية", "إنجاز"],
+    de: ["Start", "Ziehen", "Tasche", "Auto", "Tausch", "Upgrade", "Erfolg"],
+    ru: ["Дом", "Призыв", "Сумка", "Авто", "Обмен", "Улучш.", "Успех"],
+  };
+  const tabIcons = ["🏠", "🎰", "🎒", "🏭", "💱", "⚡", "🏆"];
+  const tabs = phone
+    ? compactTabLabels[game.settings.language ?? "ko"].map((label, index) => `${tabIcons[index]}\n${label}`)
+    : fullTabs;
   return (
     <SafeAreaView style={s0.safe}>
       <StatusBar style="dark" />
