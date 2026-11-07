@@ -1,24 +1,24 @@
 import {
   Animated,
-  Image,
   Modal,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   View,
-  useWindowDimensions,
 } from "react-native";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
 import { BUILDINGS } from "../data/buildings";
 import { UPGRADES } from "../data/upgrades";
 import { STANDARD_ACHIEVEMENTS, SECRET_ACHIEVEMENTS } from "../data/achievements";
-import { OVENS, RARITY_COLORS, type Rarity } from "../data/ovens";
+import { OVENS, RARITY_COLORS, type Rarity, type Oven } from "../data/ovens";
 import { getDrawPool } from "../data/drawOdds";
 import { getOvenUpgradeCost, useGameStore } from "../store/useGameStore";
 import { automationText, buildingDisplayName, inventoryText, labels, ovenDisplayName, pageText, progressText, traitNames, upgradeDisplay } from "../i18n/translations";
+
+import { DrawSequence } from "./DrawSequence";
 
 const fmt = (value: number) => Math.floor(value).toLocaleString("ko-KR");
 const ovenChance = (
@@ -74,14 +74,14 @@ export function DrawPage({ initialOdds = false }: { initialOdds?: boolean }) {
   const copy = pageText[language];
   const [mode, setMode] = useState<"basic" | "premium" | "trait">("basic");
   const [results, setResults] = useState<string[]>([]);
-  const [flying, setFlying] = useState<string[]>([]);
-  const [flightIndex, setFlightIndex] = useState(0);
-  const [secretPhase, setSecretPhase] = useState(2);
+  const [sequence, setSequence] = useState<Oven[]>([]);
   const [showOdds, setShowOdds] = useState(initialOdds);
-  const flyProgress = useRef(new Animated.Value(0)).current;
-  const secretPulse = useRef(new Animated.Value(0)).current;
-  const { width } = useWindowDimensions();
+  const finishSequence = useCallback(() => {
+    setResults(sequence.map(oven => oven.id));
+    setSequence([]);
+  }, [sequence]);
   const draw = (premium = false, count = 1) => {
+    if (sequence.length || results.length) return;
     const drawnIds: string[] = [];
     for (let i = 0; i < count; i += 1) {
       const drawn = game.draw(premium);
@@ -90,29 +90,7 @@ export function DrawPage({ initialOdds = false }: { initialOdds?: boolean }) {
     }
     if (drawnIds.length) {
       setResults([]);
-      setFlying(drawnIds);
-      const flyNext = (index: number) => {
-        setFlightIndex(index);
-        flyProgress.setValue(0);
-        Animated.timing(flyProgress, {
-          toValue: 1,
-          duration: 420,
-          useNativeDriver: true,
-        }).start(() => {
-          if (index + 1 < drawnIds.length)
-            setTimeout(() => flyNext(index + 1), 70);
-          else {
-            setFlying([]);
-            if (drawnIds.includes("oven-16")) {
-              setSecretPhase(0);
-              setTimeout(() => setSecretPhase(1), 700);
-              setTimeout(() => setSecretPhase(2), 1500);
-            }
-            setResults(drawnIds);
-          }
-        });
-      };
-      flyNext(0);
+      setSequence(drawnIds.map(id => OVENS.find(oven => oven.id === id)!));
       if (game.settings.vibration)
         Haptics.notificationAsync(
           Haptics.NotificationFeedbackType.Success,
@@ -127,32 +105,6 @@ export function DrawPage({ initialOdds = false }: { initialOdds?: boolean }) {
     (oven) => oven.ovenId === game.equippedOvenId,
   )!;
   const hasSecret = results.includes("oven-16");
-  const flyingOven = flying.length
-    ? OVENS.find((oven) => oven.id === flying[flightIndex])
-    : null;
-  useEffect(() => {
-    if (!hasSecret) {
-      secretPulse.stopAnimation();
-      secretPulse.setValue(0);
-      return;
-    }
-    const animation = Animated.loop(
-      Animated.sequence([
-        Animated.timing(secretPulse, {
-          toValue: 1,
-          duration: 620,
-          useNativeDriver: true,
-        }),
-        Animated.timing(secretPulse, {
-          toValue: 0,
-          duration: 620,
-          useNativeDriver: true,
-        }),
-      ]),
-    );
-    animation.start();
-    return () => animation.stop();
-  }, [hasSecret, secretPulse]);
   return (
     <Page title={`🎰 ${copy.drawTitle}`}>
       <View style={s.hero}>
@@ -264,67 +216,6 @@ export function DrawPage({ initialOdds = false }: { initialOdds?: boolean }) {
       >
         <View style={[s.resultShade, modalInsets, hasSecret && s.secretShade]}>
           <View style={[s.resultCard, hasSecret && s.secretCard]}>
-            {hasSecret && (
-              <>
-                <View pointerEvents="none" style={s.secretSlashField}>
-                  {Array.from({ length: 12 }, (_, index) => (
-                    <Animated.View
-                      key={index}
-                      style={[
-                        s.secretSlashLine,
-                        {
-                          top: `${(index * 17) % 94}%`,
-                          opacity: secretPulse.interpolate({
-                            inputRange: [0, 0.5, 1],
-                            outputRange: [0.16, 0.96, 0.25],
-                          }),
-                          transform: [
-                            {
-                              translateX: secretPulse.interpolate({
-                                inputRange: [0, 1],
-                                outputRange: [-120 + (index % 3) * 38, 130 - (index % 4) * 32],
-                              }),
-                            },
-                            { rotate: `${index % 2 ? -28 : 28}deg` },
-                          ],
-                        },
-                      ]}
-                    />
-                  ))}
-                </View>
-                {secretPhase < 2 ? (
-                  <View style={s.secretFragments}>
-                    {Array.from({ length: 57 }, (_, index) => (
-                      <View
-                        key={index}
-                        style={[
-                          s.secretPiece,
-                          {
-                            left: `${secretPhase === 0 ? (index * 37) % 92 : 42 + ((index % 7) - 3) * 3}%`,
-                            top: `${secretPhase === 0 ? (index * 61) % 88 : 42 + (Math.floor(index / 7) - 4) * 3}%`,
-                            opacity: secretPhase === 0 ? 0.9 : 0.35,
-                            transform: [
-                              {
-                                rotate: `${secretPhase === 0 ? (index * 29) % 180 : 0}deg`,
-                              },
-                            ],
-                          },
-                        ]}
-                      />
-                    ))}
-                  </View>
-                ) : (
-                  <View style={s.secretCookieHalo}>
-                    <Image
-                      source={require("../../assets/cookie-cutout.png")}
-                      style={s.secretCookieImage}
-                      resizeMode="contain"
-                    />
-                  </View>
-                )}
-                <Text style={s.secretReveal}>∞ SECRET OVEN ∞</Text>
-              </>
-            )}
             <Text style={s.resultSparkle}>✦ ✦ ✦</Text>
             <Text style={[s.resultTitle, hasSecret && { color: "#fff8e9" }]}>{results.length} {copy.drawResult}</Text>
             <ScrollView style={s.resultList} contentContainerStyle={s.resultListContent}>
@@ -347,75 +238,7 @@ export function DrawPage({ initialOdds = false }: { initialOdds?: boolean }) {
           </View>
         </View>
       </Modal>
-      <Modal transparent animationType="fade" visible={!!flyingOven}>
-        <View style={s.flightShade}>
-          <View pointerEvents="none" style={s.flightStars}>
-            {Array.from({ length: 28 }, (_, index) => (
-              <Text
-                key={index}
-                style={[
-                  s.flightStar,
-                  {
-                    left: `${(index * 37 + 9) % 96}%`,
-                    top: `${(index * 61 + 4) % 92}%`,
-                    fontSize: 7 + (index % 4) * 4,
-                    opacity: 0.24 + (index % 5) * 0.14,
-                    color: index % 3 === 0 ? "#ffb9ed" : index % 3 === 1 ? "#8de7ff" : "#fff8c9",
-                  },
-                ]}
-              >
-                {index % 4 === 0 ? "✦" : "·"}
-              </Text>
-            ))}
-          </View>
-          <View pointerEvents="none" style={s.flightNebulaOne} />
-          <View pointerEvents="none" style={s.flightNebulaTwo} />
-          {flyingOven && (
-            <Animated.View
-              style={[
-                s.flightOven,
-                {
-                  borderColor: RARITY_COLORS[flyingOven.rarity],
-                  opacity: flyProgress.interpolate({
-                    inputRange: [0, 0.08, 0.9, 1],
-                    outputRange: [0, 1, 1, 0],
-                  }),
-                  transform: [
-                    {
-                      translateX: flyProgress.interpolate({
-                        inputRange: [0, 1],
-                        outputRange: [-width * 0.72, width * 0.72],
-                      }),
-                    },
-                    {
-                      rotate: flyProgress.interpolate({
-                        inputRange: [0, 1],
-                        outputRange: ["-25deg", "300deg"],
-                      }),
-                    },
-                  ],
-                },
-              ]}
-            >
-              <Text
-                style={[
-                  s.flightOrb,
-                  { color: RARITY_COLORS[flyingOven.rarity] },
-                ]}
-              >
-                ✦
-              </Text>
-              <Text style={s.flightEmoji}>🔥</Text>
-              <Text style={s.flightName}>{ovenDisplayName(flyingOven.id, flyingOven.name, language)}</Text>
-              <Text
-                style={[s.rarity, { color: RARITY_COLORS[flyingOven.rarity] }]}
-              >
-                {flyingOven.rarity}
-              </Text>
-            </Animated.View>
-          )}
-        </View>
-      </Modal>
+      {sequence.length > 0 && <DrawSequence ovens={sequence} language={language} onComplete={finishSequence} />}
       <Modal
         transparent
         animationType="slide"
@@ -914,88 +737,5 @@ const s = StyleSheet.create({
   },
   secretShade: { backgroundColor: "#050308" },
   secretCard: { backgroundColor: "#120820", borderColor: "#ff4dcc" },
-  secretSlashField: {
-    ...StyleSheet.absoluteFill,
-    overflow: "hidden",
-    borderRadius: 28,
-  },
-  secretSlashLine: {
-    position: "absolute",
-    left: "-28%",
-    width: "160%",
-    height: 4,
-    borderRadius: 4,
-    backgroundColor: "#ff75ec",
-    shadowColor: "#49ddff",
-    shadowOpacity: 1,
-    shadowRadius: 11,
-  },
-  secretCookieHalo: {
-    width: 158,
-    height: 158,
-    borderRadius: 79,
-    backgroundColor: "#ffe163",
-    borderWidth: 6,
-    borderColor: "#ff62d8",
-    shadowColor: "#58ddff",
-    shadowOpacity: 1,
-    shadowRadius: 28,
-    elevation: 20,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  secretCookieImage: { width: 140, height: 140 },
-  secretReveal: {
-    color: "#fff0a2",
-    fontSize: 13,
-    letterSpacing: 3,
-    fontWeight: "900",
-  },
-  secretFragments: {
-    width: 170,
-    height: 170,
-    borderRadius: 85,
-    borderWidth: 3,
-    borderColor: "#ff4dcc",
-    overflow: "hidden",
-    backgroundColor: "#271037",
-  },
-  secretPiece: {
-    position: "absolute",
-    width: 12,
-    height: 12,
-    borderRadius: 3,
-    backgroundColor: "#f4b355",
-    transform: [{ rotate: "35deg" }],
-  },
-  flightShade: {
-    flex: 1,
-    backgroundColor: "#090a25",
-    justifyContent: "center",
-    overflow: "hidden",
-  },
-  flightStars: { ...StyleSheet.absoluteFill },
-  flightStar: { position: "absolute", fontWeight: "900" },
-  flightNebulaOne: { position: "absolute", width: 310, height: 310, borderRadius: 180, top: -130, left: -120, backgroundColor: "#45225d", opacity: 0.42 },
-  flightNebulaTwo: { position: "absolute", width: 370, height: 370, borderRadius: 220, bottom: -230, right: -170, backgroundColor: "#173e73", opacity: 0.45 },
-  flightOven: {
-    width: 220,
-    alignSelf: "center",
-    alignItems: "center",
-    padding: 18,
-    borderRadius: 28,
-    borderWidth: 4,
-    backgroundColor: "#18133f",
-    shadowColor: "#fff",
-    shadowOpacity: 0.7,
-    shadowRadius: 18,
-  },
-  flightOrb: { position: "absolute", left: -35, top: -30, fontSize: 78 },
-  flightEmoji: { fontSize: 60 },
-  flightName: {
-    color: "#fff",
-    textAlign: "center",
-    fontSize: 17,
-    fontWeight: "900",
-  },
+
 });

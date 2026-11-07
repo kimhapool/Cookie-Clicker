@@ -30,6 +30,7 @@ require.extensions['.ts'] = (module, filename) => {
 };
 const { useGameStore: store, loadGame, getCps, getClickGain, getOvenUpgradeCost } = require('../src/store/useGameStore.ts');
 const { getDrawPool } = require('../src/data/drawOdds.ts');
+const { buildDrawSequence, COOKIE_TILES } = require('../src/utils/drawSequence.ts');
 const { MISSIONS } = require('../src/data/missions.ts');
 const { BUILDINGS } = require('../src/data/buildings.ts');
 const { OVENS } = require('../src/data/ovens.ts');
@@ -281,4 +282,28 @@ test('replacing the module cannot overwrite a save before its new instance is hy
   assert.equal(fresh.useGameStore.getState().taps, 100);
   fresh.useGameStore.getState().click();
   assert.equal(fresh.useGameStore.getState().cookies, 97532);
+});
+
+test('draw presentation preserves every draw and always includes each Secret cinematic', () => {
+  const draws = [OVENS[0], OVENS[16], OVENS[4], OVENS[16]];
+  const steps = buildDrawSequence(draws);
+  assert.deepEqual(steps.map(step => [step.drawIndex, step.kind]), [
+    [0, 'flight'], [1, 'flight'], [1, 'secret'], [2, 'flight'], [3, 'flight'], [3, 'secret'],
+  ]);
+  assert.deepEqual(steps.filter(step => step.kind === 'flight').map(step => step.oven.id), draws.map(oven => oven.id));
+  assert.equal(buildDrawSequence(Array(5).fill(OVENS[16])).filter(step => step.kind === 'secret').length, 5);
+  assert.deepEqual(buildDrawSequence([]), []);
+});
+
+test('57 cookie source tiles cover the entire image with no missing or overlapping source regions', () => {
+  assert.equal(COOKIE_TILES.length, 57);
+  assert.ok(Math.abs(COOKIE_TILES.reduce((sum, tile) => sum + tile.width * tile.height, 0) - 1) < 1e-12);
+  COOKIE_TILES.forEach((a, i) => {
+    assert.ok(a.x >= 0 && a.y >= 0 && a.x + a.width <= 1 + 1e-12 && a.y + a.height <= 1 + 1e-12);
+    COOKIE_TILES.slice(i + 1).forEach(b => {
+      const overlapX = Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x);
+      const overlapY = Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y);
+      assert.ok(overlapX < 1e-12 || overlapY < 1e-12);
+    });
+  });
 });

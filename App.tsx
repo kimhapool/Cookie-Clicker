@@ -8,6 +8,7 @@ import {
   Image,
   Modal,
   Pressable,
+  Platform,
   ActivityIndicator,
   ScrollView,
   StyleSheet,
@@ -156,6 +157,15 @@ function Side({
   );
 }
 export default function App() {
+  if (__DEV__ && Platform.OS === 'web' && typeof window !== 'undefined'
+    && new URLSearchParams(window.location.search).get('preview') === 'draw') {
+    const { DrawPreview } = require('./src/dev/DrawPreview');
+    return <DrawPreview />;
+  }
+  return <RestoreGame />;
+}
+
+function RestoreGame() {
   // Fast Refresh can replace the store while preserving React component state.
   // Readiness belongs to this exact store instance, not a boolean.
   const [loadedStore, setLoadedStore] = useState<typeof useGameStore | null>(null);
