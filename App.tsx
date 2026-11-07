@@ -8,7 +8,7 @@ import {
   Image,
   Modal,
   Pressable,
-  SafeAreaView,
+  ActivityIndicator,
   ScrollView,
   StyleSheet,
   Text,
@@ -17,11 +17,13 @@ import {
   useWindowDimensions,
 } from "react-native";
 import { useEffect, useRef, useState } from "react";
-import { getClickGain, getCps, useGameStore } from "./src/store/useGameStore";
+import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { getClickGain, getCps, isTutorialReady, loadGame, useGameStore } from "./src/store/useGameStore";
 import { OVENS } from "./src/data/ovens";
 import { BUILDINGS } from "./src/data/buildings";
-import { MISSIONS, type MissionId } from "./src/data/missions";
-import { accountText, homeText, labels, mailDisplay, missionDisplay, modalText, ovenDisplayName } from "./src/i18n/translations";
+import { MISSIONS, getMissionProgress } from "./src/data/missions";
+import { STANDARD_ACHIEVEMENTS, SECRET_ACHIEVEMENTS } from "./src/data/achievements";
+import { accountText, homeText, labels, mailDisplay, missionDisplay, modalText, ovenDisplayName, pageText, progressText } from "./src/i18n/translations";
 import { compactNumber } from "./src/utils/numbers";
 import {
   AchievementsPage,
@@ -54,7 +56,7 @@ function Cookie({
     : size ?? Math.min(190, Math.max(124, width * 0.46), Math.max(124, height * 0.19));
   if (!small)
     return (
-      <Pressable onPress={onPress} style={{ width: s, height: s, alignItems: "center", justifyContent: "center" }}>
+      <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel="🍪" style={{ width: s, height: s, alignItems: "center", justifyContent: "center" }}>
         {rebirths > 0 && (
           <View
             pointerEvents="none"
@@ -124,8 +126,8 @@ function Stat({
 }) {
   return (
     <View style={[s0.stat, compact && s0.statCompact, tight && s0.statTight]}>
-      <Text style={s0.statA}>{a}</Text>
-      <Text style={s0.statB}>{b}</Text>
+      <Text style={[s0.statA, compact && s0.statLabelCompact]}>{a}</Text>
+      <Text style={[s0.statB, compact && s0.statValueCompact]}>{b}</Text>
     </View>
   );
 }
@@ -154,6 +156,40 @@ function Side({
   );
 }
 export default function App() {
+  // Fast Refresh can replace the store while preserving React component state.
+  // Readiness belongs to this exact store instance, not a boolean.
+  const [loadedStore, setLoadedStore] = useState<typeof useGameStore | null>(null);
+  const [failed, setFailed] = useState(false);
+  const [retry, setRetry] = useState(0);
+  useEffect(() => {
+    let cancelled = false;
+    setFailed(false);
+    loadGame().then(() => {
+      if (!cancelled) setLoadedStore(() => useGameStore);
+    }).catch(() => { if (!cancelled) setFailed(true); });
+    return () => { cancelled = true; };
+  }, [useGameStore, retry]);
+  return (
+    <SafeAreaProvider>
+      {loadedStore === useGameStore ? <GameApp /> : (
+        <SafeAreaView style={[s0.safe, s0.loading]}>
+          {failed ? <>
+            <Text style={s0.settingLabel}>저장 데이터를 불러오지 못했습니다.</Text>
+            <Text style={s0.mailSub}>기존 기록은 유지됩니다. 다시 시도해 주세요.</Text>
+            <Pressable onPress={() => setRetry(value => value + 1)} style={s0.closeButton}>
+              <Text style={s0.closeText}>다시 불러오기</Text>
+            </Pressable>
+          </> : <ActivityIndicator size="large" color="#850019" />}
+        </SafeAreaView>
+      )}
+    </SafeAreaProvider>
+  );
+}
+
+function GameApp() {
+  const insets = useSafeAreaInsets();
+  const modalInsets = { paddingTop: Math.max(16, insets.top), paddingBottom: Math.max(16, insets.bottom) };
+  const [homeOdds, setHomeOdds] = useState(false);
   const [tab, setTab] = useState(0);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
@@ -167,7 +203,7 @@ export default function App() {
   const [tapStage, setTapStage] = useState(0);
   const tapTimes = useRef<number[]>([]);
   const appState = useRef(AppState.currentState);
-  const shownAchievements = useRef(new Set<string>());
+  const shownAchievements = useRef(new Set(useGameStore.getState().achievements));
   const ripple = useRef(new Animated.Value(0)).current;
   const bite = useRef(new Animated.Value(0)).current;
   const rainbowSpin = useRef(new Animated.Value(0)).current;
@@ -183,11 +219,13 @@ export default function App() {
   const ownedBuildings = BUILDINGS.filter(
     (building) => (game.buildings[building.id] || 0) > 0,
   );
-  const cookieSize = Math.min(
-    ownedBuildings.length ? 154 : 190,
-    Math.max(ownedBuildings.length ? 112 : 124, width * 0.46),
-    Math.max(ownedBuildings.length ? 112 : 124, height * (ownedBuildings.length ? 0.165 : 0.19)),
-  );
+  const [playSize, setPlaySize] = useState({ width: 300, height: 220 });
+  const leftWidth = phone ? 56 : 72;
+  const rightWidth = phone ? 72 : 100;
+  const cookieSize = Math.max(64, Math.min(320,
+    playSize.width - leftWidth - rightWidth - 34,
+    playSize.height - 54,
+  ));
   const popPlayer = useAudioPlayer(require("./assets/audio/5D.wav"));
   const drumPlayer = useAudioPlayer(require("./assets/audio/MV.wav"));
   const bitePlayer = useAudioPlayer(require("./assets/audio/om.wav"));
@@ -200,14 +238,7 @@ export default function App() {
     (total, count) => total + count,
     0,
   );
-  const tutorialReady =
-    game.tutorialStep === 0
-      ? game.taps >= 1
-      : game.tutorialStep === 1
-        ? totalBuildings >= 15
-        : game.tutorialStep === 2
-          ? game.totalDraws >= 1
-          : true;
+  const tutorialReady = isTutorialReady(game);
   const canOpenTab = (index: number) => {
     if (game.tutorialComplete || index === 0) return true;
     if (game.tutorialStep === 1) return index === 3;
@@ -215,27 +246,37 @@ export default function App() {
     return game.tutorialStep >= 3;
   };
   useEffect(() => {
-    const timer = setInterval(() => { const gain = game.tick(1); if (gain) { setAutomationGain(gain); setTimeout(() => setAutomationGain(0), 700); } }, 1000);
-    return () => clearInterval(timer);
-  }, [game.tick]);
-  useEffect(() => {
     const timer = setInterval(() => setClock(Date.now()), 1000);
     return () => clearInterval(timer);
   }, []);
   useEffect(() => {
+    game.ensureAllOvens();
     game.checkOffline();
-  }, [game.checkOffline]);
-  useEffect(() => {
+    let lastTick = Date.now();
+    let clearGain: ReturnType<typeof setTimeout> | undefined;
+    const settle = () => {
+      const now = Date.now();
+      const gain = game.tick((now - lastTick) / 1000);
+      lastTick = now;
+      if (gain) {
+        setAutomationGain(gain);
+        clearTimeout(clearGain);
+        clearGain = setTimeout(() => setAutomationGain(0), 700);
+      }
+    };
+    const timer = setInterval(() => {
+      if (appState.current === "active") settle();
+    }, 1000);
     const subscription = AppState.addEventListener("change", (nextState) => {
-      const wasInactive = /inactive|background/.test(appState.current ?? "");
-      if (wasInactive && nextState === "active") game.checkOffline();
+      if (appState.current === "active" && nextState !== "active") settle();
+      if (appState.current !== "active" && nextState === "active") {
+        game.checkOffline();
+        lastTick = Date.now();
+      }
       appState.current = nextState;
     });
-    return () => subscription.remove();
-  }, [game.checkOffline]);
-  useEffect(() => {
-    game.ensureAllOvens();
-  }, [game.ensureAllOvens]);
+    return () => { subscription.remove(); clearInterval(timer); clearTimeout(clearGain); };
+  }, [game.tick, game.checkOffline, game.ensureAllOvens]);
   useEffect(() => {
     const calm = game.settings.musicStyle !== "exciting";
     calmMusicPlayer.loop = true;
@@ -261,22 +302,23 @@ export default function App() {
     excitingMusicPlayer,
   ]);
   useEffect(() => {
-    const candidates = [
-      [home.firstBake, game.taps >= 1],
-      [home.bakeryOpen, Object.values(game.buildings).some(Boolean)],
-      [home.newLife, game.rebirths >= 1],
-      [home.ovenCollector, game.totalDraws >= 10],
-    ] as const;
-    const found = candidates.find(
-      ([name, unlocked]) => unlocked && !shownAchievements.current.has(name),
-    );
-    if (found) {
-      shownAchievements.current.add(found[0]);
-      setAchievementToast(`🏆 ${home.achievementUnlocked}: ${found[0]}`);
-      const timer = setTimeout(() => setAchievementToast(null), 2600);
-      return () => clearTimeout(timer);
-    }
-  }, [game.taps, game.buildings, game.rebirths, game.totalDraws, home]);
+    const fresh = game.achievements.filter(id => !shownAchievements.current.has(id));
+    if (!fresh.length) return;
+    fresh.forEach(id => shownAchievements.current.add(id));
+    const words = progressText[game.settings.language];
+    const names = fresh.map(id => {
+      const normal = STANDARD_ACHIEVEMENTS.findIndex(key => key === id);
+      const secret = SECRET_ACHIEVEMENTS.findIndex(key => key === id);
+      return normal >= 0 ? words.achievements[normal][0]
+        : secret >= 0 ? words.secretAchievements[secret][0] : null;
+    }).filter(Boolean);
+    if (names.length) setAchievementToast(`🏆 ${names.join(" · ")}`);
+  }, [game.achievements, game.settings.language]);
+  useEffect(() => {
+    if (!achievementToast) return;
+    const timer = setTimeout(() => setAchievementToast(null), 2600);
+    return () => clearTimeout(timer);
+  }, [achievementToast]);
   useEffect(() => {
     if (tapStage !== 3) {
       rainbowSpin.stopAnimation();
@@ -367,13 +409,14 @@ export default function App() {
   return (
     <SafeAreaView style={s0.safe}>
       <StatusBar style="dark" />
-      <View style={[s0.head, phone && s0.headPhone, short && s0.headShort]}>
+      <View style={[s0.head, short && s0.headShort, phone && s0.headPhone]}>
         <Pressable
           onPress={() => setProfileOpen(true)}
           style={[s0.avatar, phone && s0.avatarPhone]}
         >
           <Cookie small />
         </Pressable>
+        <View style={[s0.resources, phone && s0.resourcesPhone]}>
         <View style={[s0.res, phone && s0.resPhone]}>
           <Text numberOfLines={1} style={[s0.resT, phone && s0.resTPhone]}>
             🍪 {compactNumber(n, game.settings.language ?? "ko")}
@@ -394,6 +437,7 @@ export default function App() {
             ⚡ CPS {compactNumber(cps, game.settings.language ?? "ko")}
           </Text>
         </View>
+        </View>
         <Pressable
           onPress={() => {
             setResetStage(0);
@@ -404,16 +448,28 @@ export default function App() {
           <Text>⚙️</Text>
         </Pressable>
       </View>
-      <View
-        style={[
-          s0.body,
-          phone && s0.bodyPhone,
-          short && s0.bodyShort,
-          tab !== 0 && s0.hidden,
-        ]}
-      >
+      {!game.tutorialComplete && (
+        <View style={s0.tutorialCard}>
+          <ScrollView style={s0.tutorialCopy}>
+            <Text style={s0.tutorialTitle}>🍪 {modal.bakeryGuide} · {game.tutorialStep + 1}/5</Text>
+            <Text style={s0.tutorialText}>
+              {modal.tutorialSteps[Math.min(game.tutorialStep, 4)]}
+            </Text>
+          </ScrollView>
+          <Pressable disabled={!tutorialReady} onPress={() => game.advanceTutorial()}
+            style={[s0.tutorialNext, !tutorialReady && s0.claimDisabled]}>
+            <Text style={s0.closeText}>
+              {tutorialReady ? (game.tutorialStep >= 4 ? modal.complete : modal.next)
+                : game.tutorialStep === 0 ? modal.tapCookie
+                : game.tutorialStep === 1 ? `${totalBuildings}/15` : modal.drawFirst}
+            </Text>
+          </Pressable>
+        </View>
+      )}
+      <ScrollView style={[s0.homeScroll, tab !== 0 && s0.hidden]}
+        contentContainerStyle={[s0.body, phone && s0.bodyPhone, short && s0.bodyShort]}>
         {game.pendingOffline > 0 && <View style={[s0.off, short && s0.offShort]}>
-          <View>
+          <View style={s0.rowCopy}>
             <Text style={s0.offTitle}>{text.offline}</Text>
             <Text style={s0.offSub}>
               {game.pendingOffline
@@ -480,8 +536,11 @@ export default function App() {
               </View>
             </Pressable>
           </View>
-          <View style={s0.play}>
-            <View style={[s0.left, short && s0.leftShort]}>
+          <View style={s0.play} onLayout={({ nativeEvent }) => {
+            const { width: w, height: h } = nativeEvent.layout;
+            setPlaySize((prev) => prev.width === w && prev.height === h ? prev : { width: w, height: h });
+          }}>
+            <View style={[s0.left, short && s0.leftShort, { width: leftWidth }]}>
               <Side
                 e="📬"
                 t={home.mail}
@@ -506,7 +565,7 @@ export default function App() {
               </Pressable>
               <Pressable
                 disabled={!canOpenTab(1)}
-                onPress={() => setTab(1)}
+                onPress={() => { setHomeOdds(true); setTab(1); }}
                 style={[s0.side, short && s0.sideShort, !canOpenTab(1) && s0.sideLocked]}
               >
                 <Text style={s0.sideE}>🎲</Text>
@@ -514,17 +573,6 @@ export default function App() {
               </Pressable>
             </View>
             <View style={s0.cookieZone}>
-              <View
-                style={[
-                  s0.shadow,
-                  {
-                    width: cookieSize * 1.45,
-                    height: Math.max(36, cookieSize * 0.32),
-                    borderRadius: cookieSize,
-                    transform: [{ translateY: cookieSize * 0.57 }],
-                  },
-                ]}
-              />
               <View
                 style={[
                   s0.cookieStage,
@@ -637,18 +685,19 @@ export default function App() {
               </View>
               <Text style={s0.tap}>{text.tapCookie}</Text>
             </View>
-            <View style={[s0.right, short && s0.rightShort]}>
+            <View style={[s0.right, short && s0.rightShort, { width: rightWidth }]}>
               <Stat
                 compact
                 tight={short}
-                a={home.ownedOvens}
-                b={`${game.ovens.filter((o) => o.level > 0).length}${home.ovenUnit}`}
+                a={pageText[game.settings.language].drawLevel}
+                b={`Lv.${game.drawLevel}`}
               />
               <Stat
                 compact
                 tight={short}
-                a={home.chips}
-                b={`${game.chocoChips}${home.chipUnit}`}
+                a={pageText[game.settings.language].nextBoost}
+                b={game.nextDrawBoost === "none" ? pageText[game.settings.language].none
+                  : game.nextDrawBoost === "diary" ? "×50" : "×15"}
               />
               <Stat
                 compact
@@ -702,7 +751,7 @@ export default function App() {
           )}
           <Pressable
             disabled={!canOpenTab(1)}
-            onPress={() => setTab(1)}
+            onPress={() => { setHomeOdds(false); setTab(1); }}
             style={[s0.promo, short && s0.promoShort, !canOpenTab(1) && s0.claimDisabled]}
           >
             <Text style={s0.promoE}>🎁</Text>
@@ -713,8 +762,8 @@ export default function App() {
             <Text style={s0.arrow}>›</Text>
           </Pressable>
         </View>
-      </View>
-      {tab === 1 && <DrawPage />}
+      </ScrollView>
+      {tab === 1 && <DrawPage initialOdds={homeOdds} />}
       {tab === 2 && <InventoryPage />}
       {tab === 3 && <AutomationPage />}
       {tab === 4 && <ExchangePage />}
@@ -725,7 +774,7 @@ export default function App() {
           <Pressable
             key={t}
             disabled={!canOpenTab(i)}
-            onPress={() => setTab(i)}
+            onPress={() => { setHomeOdds(false); setTab(i); }}
             style={[
               s0.tab,
               phone && s0.tabPhone,
@@ -742,6 +791,7 @@ export default function App() {
           </Pressable>
         ))}
       </View>
+      <Text style={s0.credit}>Powered By Kixha</Text>
       {achievementToast && (
         <View pointerEvents="none" style={s0.achievementToast}>
           <Text style={s0.achievementText}>{achievementToast}</Text>
@@ -753,11 +803,12 @@ export default function App() {
         visible={!!panel}
         onRequestClose={() => setPanel(null)}
       >
-        <View style={s0.modalShade}>
-          <View style={s0.modalCard}>
+        <View style={[s0.modalShade, modalInsets]}>
+          <View style={[s0.modalCard, s0.panelCard]}>
             <Text style={s0.modalTitle}>
               {panel === "mail" ? `📬 ${modal.mailbox}` : `📋 ${modal.todayMissions}`}
             </Text>
+            <ScrollView style={s0.panelScroll} contentContainerStyle={s0.panelContent}>
             {panel === "mail"
               ? [
                   ["tutorial", "안내 완료 선물", "초코칩 10개"],
@@ -771,7 +822,7 @@ export default function App() {
                     id === "tutorial" && !game.tutorialComplete;
                   return (
                     <View key={id} style={s0.mailRow}>
-                      <View>
+                      <View style={s0.rowCopy}>
                         <Text style={s0.mailTitle}>{mailCopy.title}</Text>
                         <Text style={s0.mailSub}>{mailCopy.reward}</Text>
                       </View>
@@ -796,16 +847,6 @@ export default function App() {
                   );
                 })
               : MISSIONS.map((mission) => {
-                  const missionProgress: Record<MissionId, number> = {
-                    tap: game.taps,
-                    stockpile: game.cookies,
-                    building: Object.values(game.buildings).reduce((a, b) => a + b, 0),
-                    chip: game.chocoChips,
-                    draw: game.totalDraws,
-                    upgrade: Object.values(game.upgrades).reduce((a, b) => a + b, 0),
-                    rebirth: game.rebirths,
-                    lifetime: game.totalCookies,
-                  };
                   const missionId = mission.id;
                   const missionCopy = missionDisplay(
                     mission.id,
@@ -813,13 +854,13 @@ export default function App() {
                     mission.reward,
                     game.settings.language ?? "ko",
                   );
-                  const value = missionProgress[missionId];
+                  const value = getMissionProgress(missionId, game);
                   const goal = mission.target;
                   const done = value >= goal;
                   const claimed = game.claimedMissions.includes(missionId);
                   return (
                     <View key={missionId} style={s0.mailRow}>
-                      <View>
+                      <View style={s0.rowCopy}>
                         <Text style={s0.mailTitle}>
                           {done ? "✅ " : "🎯 "}
                           {missionCopy.title}
@@ -861,6 +902,7 @@ export default function App() {
                     </View>
                   );
                 })}
+            </ScrollView>
             <Pressable onPress={() => setPanel(null)} style={s0.closeButton}>
               <Text style={s0.closeText}>{modal.close}</Text>
             </Pressable>
@@ -873,9 +915,10 @@ export default function App() {
         visible={settingsOpen}
         onRequestClose={() => setSettingsOpen(false)}
       >
-        <View style={s0.modalShade}>
-          <View style={s0.modalCard}>
+        <View style={[s0.modalShade, modalInsets]}>
+          <View style={[s0.modalCard, s0.panelCard]}>
             <Text style={s0.modalTitle}>⚙️ {modal.settings}</Text>
+            <ScrollView style={s0.panelScroll} contentContainerStyle={s0.panelContent}>
             <View style={s0.settingRow}>
               <Text style={s0.settingLabel}>{modal.sound}</Text>
               <Switch
@@ -1008,6 +1051,7 @@ export default function App() {
                 {resetStage >= 5 ? modal.resetDone : modal.reset}
               </Text>
             </Pressable>
+            </ScrollView>
             <Pressable
               onPress={() => {
                 setResetStage(0);
@@ -1020,33 +1064,6 @@ export default function App() {
           </View>
         </View>
       </Modal>
-      {!game.tutorialComplete && (
-        <View pointerEvents="box-none" style={s0.tutorialShade}>
-          <View pointerEvents="auto" style={s0.tutorialCard}>
-            <Text style={s0.modalTitle}>🍪 {modal.bakeryGuide}</Text>
-            <Text style={s0.tutorialText}>
-              {modal.tutorialSteps[Math.min(game.tutorialStep, 4)]}
-            </Text>
-            <Pressable
-              disabled={!tutorialReady}
-              onPress={() => game.advanceTutorial()}
-              style={[s0.closeButton, !tutorialReady && s0.claimDisabled]}
-            >
-              <Text style={s0.closeText}>
-                {tutorialReady
-                  ? game.tutorialStep >= 4
-                    ? modal.complete
-                    : modal.next
-                  : game.tutorialStep === 0
-                    ? modal.tapCookie
-                    : game.tutorialStep === 1
-                      ? `${totalBuildings}/15`
-                      : modal.drawFirst}
-              </Text>
-            </Pressable>
-          </View>
-        </View>
-      )}
       <Animated.View pointerEvents="none" style={[s0.resetFlash, { opacity: resetFlash }]} />
       <Modal
         transparent
@@ -1054,7 +1071,7 @@ export default function App() {
         visible={profileOpen}
         onRequestClose={() => setProfileOpen(false)}
       >
-        <View style={s0.modalShade}>
+        <View style={[s0.modalShade, modalInsets]}>
           <View style={s0.modalCard}>
             <Text style={s0.modalTitle}>🍪 {modal.profile}</Text>
             <Text style={s0.settingLabel}>
@@ -1089,7 +1106,7 @@ export default function App() {
         visible={rebirthOpen}
         onRequestClose={() => setRebirthOpen(false)}
       >
-        <View style={s0.modalShade}>
+        <View style={[s0.modalShade, modalInsets]}>
           <View style={s0.modalCard}>
             <Text style={s0.modalTitle}>😇 {home.rebirth}</Text>
             <Text style={s0.settingLabel}>{modal.currentRebirth} {game.rebirths}</Text>
@@ -1136,6 +1153,8 @@ export default function App() {
 }
 const s0 = StyleSheet.create({
   safe: { flex: 1, backgroundColor: PAPER },
+  loading: { justifyContent: "center", padding: 24 },
+  credit: { color: "#62412e", backgroundColor: WINE, textAlign: "center", fontSize: 10, paddingBottom: 4 },
   resetFlash: { ...StyleSheet.absoluteFill, zIndex: 99, backgroundColor: "#fff9d8" },
   head: {
     height: 115,
@@ -1147,7 +1166,7 @@ const s0 = StyleSheet.create({
     borderBottomWidth: 5,
     borderColor: "#c79e6a",
   },
-  headPhone: { height: 92, gap: 5, paddingHorizontal: 7 },
+  headPhone: { height: 96, gap: 6, paddingHorizontal: 7 },
   headShort: { height: 78 },
   avatar: {
     width: 70,
@@ -1159,7 +1178,9 @@ const s0 = StyleSheet.create({
     borderWidth: 4,
     borderColor: "#b77b38",
   },
-  avatarPhone: { width: 54, height: 54, borderRadius: 27 },
+  avatarPhone: { width: 44, height: 44, borderRadius: 22, overflow: "hidden" },
+  resources: { flex: 1, minWidth: 0, flexDirection: "row", gap: 8 },
+  resourcesPhone: { flexWrap: "wrap", gap: 4 },
   res: {
     height: 60,
     minWidth: 95,
@@ -1171,10 +1192,10 @@ const s0 = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  resPhone: { minWidth: 0, height: 52, borderRadius: 11 },
+  resPhone: { minWidth: 0, height: 34, borderRadius: 10, flexBasis: "46%", flexGrow: 1, flexShrink: 1 },
   cps: { flex: 2.2 },
   resT: { fontSize: 16, fontWeight: "900", color: INK },
-  resTPhone: { fontSize: 10 },
+  resTPhone: { fontSize: 13 },
   setting: {
     width: 57,
     height: 70,
@@ -1185,8 +1206,9 @@ const s0 = StyleSheet.create({
     borderWidth: 2,
     borderColor: "#b77b38",
   },
-  settingPhone: { width: 40, height: 52, borderRadius: 11 },
-  body: { flex: 1, padding: 22, gap: 13 },
+  settingPhone: { width: 44, height: 44, borderRadius: 11 },
+  homeScroll: { flex: 1 },
+  body: { flexGrow: 1, padding: 22, gap: 13 },
   bodyPhone: { padding: 14, gap: 10 },
   bodyShort: { padding: 10, gap: 7 },
   hidden: { display: "none" },
@@ -1198,7 +1220,7 @@ const s0 = StyleSheet.create({
   },
   comingText: { fontSize: 18, fontWeight: "900", color: INK },
   off: {
-    height: 118,
+    minHeight: 118,
     borderRadius: 26,
     backgroundColor: "#fff3d5",
     borderWidth: 4,
@@ -1209,7 +1231,7 @@ const s0 = StyleSheet.create({
     justifyContent: "space-between",
   },
   offTitle: { fontSize: 20, fontWeight: "900", color: INK, marginBottom: 8 },
-  offShort: { height: 88, paddingHorizontal: 16, borderWidth: 3 },
+  offShort: { minHeight: 88, paddingVertical: 12, paddingHorizontal: 16, borderWidth: 3, gap: 10 },
   offSub: { fontSize: 15, fontWeight: "800", color: "#72564b" },
   claim: {
     width: 120,
@@ -1237,6 +1259,10 @@ const s0 = StyleSheet.create({
     borderWidth: 3,
     borderColor: "#d9bd85",
   },
+  panelCard: { maxHeight: "100%", flexShrink: 1, padding: 16 },
+  panelScroll: { flexShrink: 1 },
+  panelContent: { gap: 12 },
+  rowCopy: { flex: 1, minWidth: 0 },
   modalTitle: { fontSize: 25, fontWeight: "900", color: INK, marginBottom: 4 },
   settingRow: {
     flexDirection: "row",
@@ -1255,10 +1281,14 @@ const s0 = StyleSheet.create({
     padding: 12,
     borderWidth: 1,
     borderColor: "#eadabb",
+    gap: 10,
   },
   mailTitle: { fontSize: 16, fontWeight: "900", color: INK },
   mailSub: { fontSize: 13, fontWeight: "700", color: "#746359", marginTop: 3 },
   mailButton: {
+    flexShrink: 0,
+    minHeight: 44,
+    justifyContent: "center",
     backgroundColor: "#ffca45",
     paddingHorizontal: 14,
     paddingVertical: 9,
@@ -1310,29 +1340,24 @@ const s0 = StyleSheet.create({
     fontWeight: "800",
     lineHeight: 20,
   },
-  tutorialShade: {
-    ...StyleSheet.absoluteFill,
-    zIndex: 30,
-    elevation: 30,
-    justifyContent: "flex-start",
-    alignItems: "center",
-    paddingTop: 88,
-    paddingHorizontal: 18,
-  },
   tutorialCard: {
-    width: "100%",
-    maxWidth: 440,
     backgroundColor: "#fff8e9",
-    borderWidth: 3,
+    borderBottomWidth: 2,
     borderColor: "#dba020",
-    borderRadius: 22,
-    padding: 16,
-    elevation: 12,
+    padding: 10,
+    gap: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    maxHeight: 124,
   },
-  tutorialText: { color: INK, fontSize: 16, fontWeight: "800", lineHeight: 23 },
+  tutorialCopy: { flex: 1, maxHeight: 100 },
+  tutorialTitle: { color: INK, fontSize: 13, fontWeight: "900", marginBottom: 4 },
+  tutorialText: { color: INK, fontSize: 13, fontWeight: "700", lineHeight: 19 },
+  tutorialNext: { backgroundColor: "#850019", minHeight: 44, maxWidth: 100, padding: 10, borderRadius: 12 },
   claimT: { fontSize: 20, fontWeight: "900", color: INK },
   board: {
-    flex: 1,
+    flexGrow: 1,
+    flexShrink: 0,
     backgroundColor: BOARD,
     borderWidth: 4,
     borderColor: "#cbdcf1",
@@ -1357,10 +1382,12 @@ const s0 = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  statA: { fontSize: 14, fontWeight: "800", color: "#85888e" },
+  statA: { fontSize: 14, fontWeight: "800", color: "#566575", textAlign: "center" },
   statB: { fontSize: 21, fontWeight: "900", color: "#27384f" },
-  statCompact: { flex: 0, height: 54, minWidth: 0, borderRadius: 18 },
-  statTight: { height: 40, borderRadius: 13 },
+  statCompact: { flex: 0, minHeight: 54, minWidth: 0, borderRadius: 18, paddingVertical: 6 },
+  statTight: { minHeight: 48, borderRadius: 13 },
+  statLabelCompact: { fontSize: 11 },
+  statValueCompact: { fontSize: 16, textAlign: "center" },
   work: {
     height: 28,
     textAlign: "center",
@@ -1388,6 +1415,8 @@ const s0 = StyleSheet.create({
   boostUseText: { color: INK, fontSize: 10, fontWeight: "900" },
   play: {
     flex: 1,
+    minHeight: 232,
+    marginVertical: 10,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
@@ -1405,7 +1434,7 @@ const s0 = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  sideShort: { height: 39, borderRadius: 14, borderWidth: 2 },
+  sideShort: { height: 48, borderRadius: 14, borderWidth: 2 },
   sideLocked: { opacity: 0.35 },
   sideE: { fontSize: 20 },
   sideT: { fontSize: 12, fontWeight: "900", color: INK },
@@ -1502,7 +1531,7 @@ const s0 = StyleSheet.create({
     borderWidth: 2,
     borderColor: "#8a4614",
   },
-  tap: { marginTop: 12, color: INK, fontWeight: "900", fontSize: 16 },
+  tap: { marginTop: 10, color: INK, fontWeight: "900", fontSize: 13, textAlign: "center" },
   automationVista: {
     minHeight: 58,
     marginTop: 7,
@@ -1564,8 +1593,8 @@ const s0 = StyleSheet.create({
     flexDirection: "row",
     gap: 10,
   },
-  dockPhone: { height: 108, padding: 7, gap: 4 },
-  dockShort: { height: 94, padding: 6, gap: 4 },
+  dockPhone: { height: 80, padding: 6, gap: 3 },
+  dockShort: { height: 80, padding: 6, gap: 3 },
   achievementToast: {
     position: "absolute",
     bottom: 126,
@@ -1598,6 +1627,6 @@ const s0 = StyleSheet.create({
     fontWeight: "900",
     color: "white",
   },
-  tabTPhone: { fontSize: 9, lineHeight: 17 },
+  tabTPhone: { fontSize: 11, lineHeight: 19 },
   activeT: { color: INK },
 });

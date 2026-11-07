@@ -2,16 +2,20 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import { BUILDINGS } from "../data/buildings";
-import { OVENS, type Oven, type Rarity } from "../data/ovens";
+import { OVENS, type Oven } from "../data/ovens";
+import { getDrawPool, type DrawBoost } from "../data/drawOdds";
 import { UPGRADES } from "../data/upgrades";
-import type { MissionId } from "../data/missions";
+import { MISSIONS, getMissionProgress, type MissionId } from "../data/missions";
+import { earnedAchievements } from "../data/achievements";
 
 export type Trait = "없음" | "샤이니" | "반전" | "글리치";
 export type Epirus =
   "aurora" | "opternal" | "twilight" | "phoenix" | "infinity";
 export type OwnedOven = {
   ovenId: string;
+  // Legacy save field: level stores the number of copies, not enhancement level.
   level: number;
+  upgradeLevel?: number;
   fusion: number;
   trait: Trait;
   core: Epirus;
@@ -24,7 +28,6 @@ type Settings = {
   language: "ko" | "en" | "ja" | "zh" | "ar" | "de" | "ru";
   tapSound: "pop" | "drum" | "bite" | "crumble";
 };
-type DrawBoost = "none" | "dictionary" | "diary";
 type Game = {
   cookies: number;
   totalCookies: number;
@@ -47,6 +50,7 @@ type Game = {
   lastSavedAt: number;
   pendingOffline: number;
   offlineSeconds: number;
+  incomeRemainder: number;
   boostUntil: number;
   boostMultiplier: number;
   nextDrawBoost: DrawBoost;
@@ -64,6 +68,7 @@ type Game = {
   rebirth(): boolean;
   draw(premium?: boolean): Oven | null;
   equipOven(id: string): boolean;
+  upgradeOven(id: string): boolean;
   fuseOven(id: string): boolean;
   dismantleOven(id: string): boolean;
   rollTrait(id: string): boolean;
@@ -87,15 +92,15 @@ const cores: Epirus[] = [
   "opternal",
   "twilight",
   "phoenix",
-  "infinity",
 ];
 const allOvens = (): OwnedOven[] =>
-  OVENS.map((oven, index) => ({
+  OVENS.map((oven) => ({
     ovenId: oven.id,
     level: 1,
+    upgradeLevel: 0,
     fusion: 0,
     trait: "없음",
-    core: cores[index % cores.length],
+    core: cores[Math.floor(Math.random() * cores.length)],
   }));
 const defaultSettings: Settings = {
   sound: true,
@@ -127,6 +132,7 @@ const baseState = () => ({
   lastSavedAt: Date.now(),
   pendingOffline: 0,
   offlineSeconds: 0,
+  incomeRemainder: 0,
   boostUntil: 0,
   boostMultiplier: 1,
   nextDrawBoost: "none" as DrawBoost,
@@ -151,6 +157,14 @@ const equippedTrait = (state: Pick<Game, "ovens" | "equippedOvenId">) =>
   "없음";
 const equippedFusion = (state: Pick<Game, "ovens" | "equippedOvenId">) =>
   state.ovens.find((oven) => oven.ovenId === state.equippedOvenId)?.fusion ?? 0;
+const equippedUpgrade = (state: Pick<Game, "ovens" | "equippedOvenId">) =>
+  state.ovens.find((oven) => oven.ovenId === state.equippedOvenId)?.upgradeLevel ?? 0;
+export const getOvenUpgradeCost = (owned: OwnedOven) => {
+  const oven = OVENS.find(item => item.id === owned.ovenId);
+  if (!oven) return Infinity;
+  const rank = ["Common", "Uncommon", "Rare", "Epic", "Legendary", "Mythic", "Eternal", "Celestial", "Secret"].indexOf(oven.rarity);
+  return Math.floor(1000 * (rank + 1) ** 2 * 1.65 ** (owned.upgradeLevel ?? 0));
+};
 const activeBoost = (state: Pick<Game, "boostUntil" | "boostMultiplier">) =>
   state.boostUntil > Date.now() ? state.boostMultiplier : 1;
 export const getClickGain = (
@@ -170,6 +184,7 @@ export const getClickGain = (
       equipped(state).click *
         traitMultiplier(equippedTrait(state)) *
         Math.pow(1.25, equippedFusion(state)) *
+        Math.pow(1.1, equippedUpgrade(state)) *
         Math.pow(1.5, state.rebirths) *
         activeBoost(state) *
         Math.pow(1.2, state.upgrades.click) *
@@ -196,53 +211,40 @@ export const getCps = (
   equipped(state).cps *
   traitMultiplier(equippedTrait(state)) *
   Math.pow(1.25, equippedFusion(state)) *
+  Math.pow(1.1, equippedUpgrade(state)) *
   Math.pow(1.5, state.rebirths) *
   activeBoost(state) *
   Math.pow(1.25, state.upgrades.cps) *
   Math.pow(1.1, state.upgrades.global);
+
+// Integrate the timed multiplier only over the part of the interval it covered.
+export const productionBetween = (
+  state: Parameters<typeof getCps>[0], from: number, to: number,
+) => {
+  if (!Number.isFinite(from) || !Number.isFinite(to) || to <= from) return 0;
+  const seconds = (to - from) / 1000;
+  const boosted = Math.max(0, Math.min(to, state.boostUntil) - from) / 1000;
+  const normalCps = getCps({ ...state, boostUntil: 0 });
+  return normalCps * (seconds + boosted * (state.boostMultiplier - 1));
+};
+
+export const isTutorialReady = (
+  state: Pick<Game, "tutorialStep" | "tutorialComplete" | "taps" | "buildings" | "totalDraws">,
+) => !state.tutorialComplete && (
+  state.tutorialStep === 0 ? state.taps >= 1 :
+  state.tutorialStep === 1 ? Object.values(state.buildings).reduce((a, b) => a + b, 0) >= 15 :
+  state.tutorialStep === 2 ? state.totalDraws >= 1 :
+  state.tutorialStep === 3 || state.tutorialStep === 4
+);
 const buildingCost = (id: string, count: number) =>
   Math.floor(
     BUILDINGS.find((building) => building.id === id)!.baseCost *
       Math.pow(1.15, count),
   );
-const rarityWeight: Record<Rarity, number> = {
-  Common: 45,
-  Uncommon: 25,
-  Rare: 14,
-  Epic: 8,
-  Legendary: 4.4,
-  Mythic: 2,
-  Eternal: 1,
-  Celestial: 0.55,
-  // The table is weighted per oven.  There are 199.9 points before Secret,
-  // so this value resolves to the specified 0.0329% final Secret chance.
-  Secret: 0.065756,
-};
-const premiumWeight: Record<Rarity, number> = {
-  Common: 8,
-  Uncommon: 13,
-  Rare: 19,
-  Epic: 20,
-  Legendary: 17,
-  Mythic: 12,
-  Eternal: 7,
-  Celestial: 3.5,
-  Secret: 0.329,
-};
-const highRarity: Rarity[] = ["Mythic", "Eternal", "Celestial", "Secret"];
 const randomOven = (premium: boolean, boost: DrawBoost, level: number) => {
-  const weights = premium ? premiumWeight : rarityWeight;
-  const multiplier = boost === "diary" ? 50 : boost === "dictionary" ? 15 : 1;
-  const levelBonus = premium ? 1 : 1 + Math.max(0, level - 1) * 0.035;
-  const pool = OVENS.map((oven) => ({
-    oven,
-    weight:
-      weights[oven.rarity] *
-      (highRarity.includes(oven.rarity) ? multiplier * levelBonus : 1),
-  }));
-  const total = pool.reduce((sum, item) => sum + item.weight, 0);
-  let roll = Math.random() * total;
-  return pool.find((item) => (roll -= item.weight) <= 0)?.oven ?? OVENS[0];
+  const pool = getDrawPool(premium, boost, level);
+  let roll = Math.random();
+  return pool.find((item) => (roll -= item.chance) <= 0)?.oven ?? OVENS[OVENS.length - 1];
 };
 const earnedEpirus = (oven: Oven): Partial<Record<Epirus, number>> => {
   if (oven.id === "oven-10") return { phoenix: 2 };
@@ -252,9 +254,34 @@ const earnedEpirus = (oven: Oven): Partial<Record<Epirus, number>> => {
   return { ["aurora"]: 1 };
 };
 
+let hydrationError: unknown;
+let loadPromise: Promise<void> | undefined;
+
+export async function loadGame(): Promise<void> {
+  if (useGameStore.persist.hasHydrated()) return;
+  if (!loadPromise) {
+    loadPromise = (async () => {
+      hydrationError = undefined;
+      await useGameStore.persist.rehydrate();
+      if (hydrationError) throw hydrationError;
+    })();
+  }
+  try { await loadPromise; }
+  finally { loadPromise = undefined; }
+}
+
 export const useGameStore = create<Game>()(
   persist(
-    (set, get) => ({
+    (write, get) => {
+      const set = (patch: Partial<Game> | ((state: Game) => Partial<Game>)) => {
+        // This also protects unread saves when Fast Refresh replaces the store module.
+        if (!useGameStore.persist.hasHydrated()) return;
+        write((state) => {
+          const next = { ...state, ...(typeof patch === "function" ? patch(state) : patch) };
+          return { ...next, achievements: earnedAchievements(next) };
+        });
+      };
+      return ({
       ...baseState(),
       click: () => {
         const state = get();
@@ -269,9 +296,10 @@ export const useGameStore = create<Game>()(
       },
       buyBuilding: (id) => {
         const state = get();
+        if (!BUILDINGS.some((building) => building.id === id)) return false;
         const count = state.buildings[id] || 0;
         const cost = buildingCost(id, count);
-        if (state.cookies < cost) return false;
+        if (!Number.isFinite(cost) || state.cookies < cost) return false;
         set({
           cookies: state.cookies - cost,
           buildings: { ...state.buildings, [id]: count + 1 },
@@ -280,6 +308,7 @@ export const useGameStore = create<Game>()(
       },
       sellBuilding: (id) => {
         const state = get();
+        if (!BUILDINGS.some((building) => building.id === id)) return false;
         const count = state.buildings[id] || 0;
         if (!count) return false;
         set({
@@ -291,6 +320,7 @@ export const useGameStore = create<Game>()(
       },
       exchangeCookies: (amount) => {
         const state = get();
+        if (!Number.isFinite(amount) || amount <= 0) return false;
         const chips = Math.floor(Math.min(state.cookies, amount) / 100000);
         if (!chips) return false;
         set({
@@ -301,6 +331,7 @@ export const useGameStore = create<Game>()(
       },
       exchangeChips: (mode) => {
         const state = get();
+        if (!["premium", "dictionary", "diary"].includes(mode)) return false;
         const cost =
           mode === "premium" ? 10000 : mode === "dictionary" ? 1000000 : 3;
         if (mode === "diary") {
@@ -357,7 +388,6 @@ export const useGameStore = create<Game>()(
         if (premium ? state.premiumChips < 1 : state.chocoChips < 1)
           return null;
         const oven = randomOven(premium, state.nextDrawBoost, state.drawLevel);
-        const owned = state.ovens.find((item) => item.ovenId === oven.id)!;
         const draws = state.totalDraws + 1;
         set({
           [premium ? "premiumChips" : "chocoChips"]:
@@ -376,6 +406,19 @@ export const useGameStore = create<Game>()(
         if (!get().ovens.find((oven) => oven.ovenId === id && oven.level > 0))
           return false;
         set({ equippedOvenId: id });
+        return true;
+      },
+      upgradeOven: (id) => {
+        const state = get();
+        const owned = state.ovens.find(oven => oven.ovenId === id && oven.level > 0);
+        if (!owned) return false;
+        const cost = getOvenUpgradeCost(owned);
+        if (!Number.isFinite(cost) || state.cookies < cost) return false;
+        set({
+          cookies: state.cookies - cost,
+          ovens: state.ovens.map(oven => oven.ovenId === id
+            ? { ...oven, upgradeLevel: (oven.upgradeLevel ?? 0) + 1 } : oven),
+        });
         return true;
       },
       fuseOven: (id) => {
@@ -422,9 +465,14 @@ export const useGameStore = create<Game>()(
         const next = traits[traits.indexOf(owned.trait) + 1];
         const cost = traits.indexOf(next);
         const core = owned.core;
-        if (state.epirus[core] < cost) return false;
+        const matching = Math.min(state.epirus[core], cost);
+        const universal = cost - matching;
+        if (universal > (core === "infinity" ? 0 : state.epirus.infinity)) return false;
         set({
-          epirus: { ...state.epirus, [core]: state.epirus[core] - cost },
+          epirus: { ...state.epirus,
+            [core]: state.epirus[core] - matching,
+            ...(core !== "infinity" ? { infinity: state.epirus.infinity - universal } : {}),
+          },
           ovens: state.ovens.map((oven) =>
             oven.ovenId === id ? { ...oven, trait: next } : oven,
           ),
@@ -433,6 +481,7 @@ export const useGameStore = create<Game>()(
       },
       activateBoost: (multiplier) => {
         const state = get();
+        if (multiplier !== 2 && multiplier !== 4) return false;
         const cost = multiplier === 2 ? 5000 : 25000;
         if (state.cookies < cost || activeBoost(state) > 1) return false;
         set({
@@ -444,12 +493,13 @@ export const useGameStore = create<Game>()(
       },
       buyUpgrade: (id) => {
         const state = get();
-        const upgrade = UPGRADES.find((item) => item.id === id)!;
+        const upgrade = UPGRADES.find((item) => item.id === id);
+        if (!upgrade) return false;
         const level = state.upgrades[id];
         const cost = Math.floor(
           upgrade.baseCost * Math.pow(upgrade.growth, level),
         );
-        if (state.cookies < cost) return false;
+        if (!Number.isFinite(cost) || state.cookies < cost) return false;
         set({
           cookies: state.cookies - cost,
           upgrades: { ...state.upgrades, [id]: level + 1 },
@@ -460,6 +510,7 @@ export const useGameStore = create<Game>()(
         set((state) => ({ settings: { ...state.settings, ...value } })),
       claimMail: (id) => {
         const state = get();
+        if (!["tutorial", "welcome", "chips", "moon"].includes(id)) return false;
         if (state.claimedMail.includes(id)) return false;
         if (id === "tutorial" && !state.tutorialComplete) return false;
         const reward =
@@ -481,6 +532,8 @@ export const useGameStore = create<Game>()(
       },
       claimMission: (id) => {
         const state = get();
+        const mission = MISSIONS.find((item) => item.id === id);
+        if (!mission || getMissionProgress(id, state) < mission.target) return false;
         if (state.claimedMissions.includes(id)) return false;
         const rewards: Record<
           MissionId,
@@ -509,6 +562,7 @@ export const useGameStore = create<Game>()(
       },
       advanceTutorial: () => {
         const state = get();
+        if (!isTutorialReady(state)) return;
         const next = state.tutorialStep + 1;
         set({ tutorialStep: next, tutorialComplete: next >= 5 });
       },
@@ -517,13 +571,14 @@ export const useGameStore = create<Game>()(
         const map = new Map(state.ovens.map((oven) => [oven.ovenId, oven]));
         set({
           ovens: OVENS.map(
-            (oven, index) =>
+            (oven) =>
               map.get(oven.id) ?? {
                 ovenId: oven.id,
                 level: 1,
+                upgradeLevel: 0,
                 fusion: 0,
                 trait: "없음",
-                core: cores[index % cores.length],
+                core: cores[Math.floor(Math.random() * cores.length)],
               },
           ),
         });
@@ -534,16 +589,18 @@ export const useGameStore = create<Game>()(
       },
       checkOffline: () => {
         const state = get();
-        if (state.pendingOffline > 0) return;
+        const now = Date.now();
         const seconds = Math.min(
           4 * 60 * 60,
-          Math.max(0, Math.floor((Date.now() - state.lastSavedAt) / 1000)),
+          Math.max(0, Math.floor((now - state.lastSavedAt) / 1000)),
         );
-        const reward = Math.floor(getCps(state) * seconds * 0.75);
+        const reward = Math.floor(productionBetween(
+          state, state.lastSavedAt, state.lastSavedAt + seconds * 1000,
+        ) * 0.75);
         set({
-          pendingOffline: reward,
-          offlineSeconds: seconds,
-          lastSavedAt: Date.now(),
+          pendingOffline: state.pendingOffline + reward,
+          offlineSeconds: state.offlineSeconds + (reward > 0 ? seconds : 0),
+          lastSavedAt: now,
         });
       },
       claimOffline: () => {
@@ -560,19 +617,36 @@ export const useGameStore = create<Game>()(
       },
       tick: (seconds) => {
         const state = get();
-        const gain = Math.floor(getCps(state) * seconds);
-        if (gain)
-          set({
-            cookies: state.cookies + gain,
-            totalCookies: state.totalCookies + gain,
-            lastSavedAt: Date.now(),
-          });
+        if (!Number.isFinite(seconds) || seconds <= 0) return 0;
+        const now = Date.now();
+        const produced = productionBetween(state, now - seconds * 1000, now)
+          + state.incomeRemainder;
+        const gain = Math.floor(produced + 1e-9);
+        set({
+          cookies: state.cookies + gain,
+          totalCookies: state.totalCookies + gain,
+          incomeRemainder: Math.max(0, produced - gain),
+          lastSavedAt: now,
+        });
         return gain;
       },
-    }),
+      });
+    },
     {
       name: "cookie-clicker-game-v2",
       storage: createJSONStorage(() => AsyncStorage),
+      // The app must restore the save before mounting any gameplay effects.
+      skipHydration: true,
+      onRehydrateStorage: () => (_state, error) => { hydrationError = error; },
+      merge: (persisted, current) => {
+        const data = persisted as Partial<Game> | undefined;
+        const restored = { ...current, ...data };
+        restored.settings = { ...current.settings, ...data?.settings };
+        restored.upgrades = { ...current.upgrades, ...data?.upgrades };
+        restored.epirus = { ...current.epirus, ...data?.epirus };
+        restored.buildings = { ...current.buildings, ...data?.buildings };
+        return { ...restored, achievements: earnedAchievements(restored) };
+      },
       partialize: (state) => {
         const {
           click,
@@ -584,6 +658,7 @@ export const useGameStore = create<Game>()(
           rebirth,
           draw,
           equipOven,
+          upgradeOven,
           fuseOven,
           dismantleOven,
           rollTrait,

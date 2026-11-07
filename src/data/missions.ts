@@ -15,6 +15,30 @@ export type MissionDefinition = {
   reward: string;
 };
 
+type MissionProgress = {
+  taps: number;
+  cookies: number;
+  buildings: Record<string, number>;
+  chocoChips: number;
+  totalDraws: number;
+  upgrades: Record<string, number>;
+  rebirths: number;
+  totalCookies: number;
+};
+
+export function getMissionProgress(id: MissionId, state: MissionProgress): number {
+  switch (id) {
+    case "tap": return state.taps;
+    case "stockpile": return state.cookies;
+    case "building": return Object.values(state.buildings).reduce((a, b) => a + b, 0);
+    case "chip": return state.chocoChips;
+    case "draw": return state.totalDraws;
+    case "upgrade": return Object.values(state.upgrades).reduce((a, b) => a + b, 0);
+    case "rebirth": return state.rebirths;
+    case "lifetime": return state.totalCookies;
+  }
+}
+
 export const MISSIONS: MissionDefinition[] = [
   { id: "tap", title: "쿠키 100회 굽기", target: 100, reward: "쿠키 500개" },
   {

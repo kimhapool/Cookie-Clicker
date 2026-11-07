@@ -10,51 +10,25 @@ import {
   useWindowDimensions,
 } from "react-native";
 import { useEffect, useRef, useState } from "react";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
 import { BUILDINGS } from "../data/buildings";
 import { UPGRADES } from "../data/upgrades";
-import { OVENS, RARITY_COLORS } from "../data/ovens";
-import { useGameStore } from "../store/useGameStore";
+import { STANDARD_ACHIEVEMENTS, SECRET_ACHIEVEMENTS } from "../data/achievements";
+import { OVENS, RARITY_COLORS, type Rarity } from "../data/ovens";
+import { getDrawPool } from "../data/drawOdds";
+import { getOvenUpgradeCost, useGameStore } from "../store/useGameStore";
 import { automationText, buildingDisplayName, inventoryText, labels, ovenDisplayName, pageText, progressText, traitNames, upgradeDisplay } from "../i18n/translations";
 
 const fmt = (value: number) => Math.floor(value).toLocaleString("ko-KR");
-const BASIC_WEIGHT = {
-  Common: 45,
-  Uncommon: 25,
-  Rare: 14,
-  Epic: 8,
-  Legendary: 4.4,
-  Mythic: 2,
-  Eternal: 1,
-  Celestial: 0.55,
-  Secret: 0.065756,
-} as const;
-const PREMIUM_WEIGHT = {
-  Common: 8,
-  Uncommon: 13,
-  Rare: 19,
-  Epic: 20,
-  Legendary: 17,
-  Mythic: 12,
-  Eternal: 7,
-  Celestial: 3.5,
-  Secret: 0.329,
-} as const;
-const HIGH_RARITIES = new Set(["Mythic", "Eternal", "Celestial", "Secret"]);
 const ovenChance = (
-  rarity: keyof typeof BASIC_WEIGHT,
+  rarity: Rarity,
   premium: boolean,
   level: number,
   boost: "none" | "dictionary" | "diary",
 ) => {
-  const table = premium ? PREMIUM_WEIGHT : BASIC_WEIGHT;
-  const boostMultiplier = boost === "diary" ? 50 : boost === "dictionary" ? 15 : 1;
-  const levelBonus = premium ? 1 : 1 + Math.max(0, level - 1) * 0.035;
-  const weightFor = (itemRarity: keyof typeof BASIC_WEIGHT) =>
-    table[itemRarity] *
-    (HIGH_RARITIES.has(itemRarity) ? boostMultiplier * levelBonus : 1);
-  const total = OVENS.reduce((sum, oven) => sum + weightFor(oven.rarity), 0);
-  return `${((weightFor(rarity) / total) * 100).toFixed(rarity === "Secret" ? 4 : 2)}%`;
+  const chance = getDrawPool(premium, boost, level).find(item => item.oven.rarity === rarity)?.chance ?? 0;
+  return `${(chance * 100).toFixed(2)}%`;
 };
 
 function Button({
@@ -92,7 +66,9 @@ function Page({
   );
 }
 
-export function DrawPage() {
+export function DrawPage({ initialOdds = false }: { initialOdds?: boolean }) {
+  const insets = useSafeAreaInsets();
+  const modalInsets = { paddingTop: Math.max(16, insets.top), paddingBottom: Math.max(16, insets.bottom) };
   const game = useGameStore();
   const language = game.settings.language ?? "ko";
   const copy = pageText[language];
@@ -101,7 +77,7 @@ export function DrawPage() {
   const [flying, setFlying] = useState<string[]>([]);
   const [flightIndex, setFlightIndex] = useState(0);
   const [secretPhase, setSecretPhase] = useState(2);
-  const [showOdds, setShowOdds] = useState(false);
+  const [showOdds, setShowOdds] = useState(initialOdds);
   const flyProgress = useRef(new Animated.Value(0)).current;
   const secretPulse = useRef(new Animated.Value(0)).current;
   const { width } = useWindowDimensions();
@@ -286,7 +262,7 @@ export function DrawPage() {
         visible={results.length > 0}
         onRequestClose={() => setResults([])}
       >
-        <View style={[s.resultShade, hasSecret && s.secretShade]}>
+        <View style={[s.resultShade, modalInsets, hasSecret && s.secretShade]}>
           <View style={[s.resultCard, hasSecret && s.secretCard]}>
             {hasSecret && (
               <>
@@ -350,7 +326,8 @@ export function DrawPage() {
               </>
             )}
             <Text style={s.resultSparkle}>✦ ✦ ✦</Text>
-            <Text style={s.resultTitle}>{results.length} {copy.drawResult}</Text>
+            <Text style={[s.resultTitle, hasSecret && { color: "#fff8e9" }]}>{results.length} {copy.drawResult}</Text>
+            <ScrollView style={s.resultList} contentContainerStyle={s.resultListContent}>
             {Object.entries(grouped).map(([id, count]) => {
               const oven = OVENS.find((item) => item.id === id)!;
               return (
@@ -365,6 +342,7 @@ export function DrawPage() {
                 </Text>
               );
             })}
+            </ScrollView>
             <Button title={copy.confirm} onPress={() => setResults([])} />
           </View>
         </View>
@@ -444,14 +422,15 @@ export function DrawPage() {
         visible={showOdds}
         onRequestClose={() => setShowOdds(false)}
       >
-        <View style={s.resultShade}>
-          <ScrollView style={s.oddsCard} contentContainerStyle={s.oddsContent}>
+        <View style={[s.resultShade, modalInsets]}>
+          <View style={s.oddsCard}>
             <Text style={s.resultTitle}>
               {mode === "premium" ? copy.premiumOdds : copy.basicOdds}
             </Text>
+            <ScrollView style={s.resultList} contentContainerStyle={s.oddsContent}>
             {OVENS.map((oven) => (
               <View key={oven.id} style={s.oddsRow}>
-                <Text style={s.ovenName}>{ovenDisplayName(oven.id, oven.name, language)}</Text>
+                <Text style={[s.ovenName, { flex: 1, minWidth: 0 }]}>{ovenDisplayName(oven.id, oven.name, language)}</Text>
                 <Text style={[s.rarity, { color: RARITY_COLORS[oven.rarity] }]}>
                   {oven.rarity === "Secret"
                     ? "???"
@@ -459,8 +438,9 @@ export function DrawPage() {
                 </Text>
               </View>
             ))}
+            </ScrollView>
             <Button title={copy.close} onPress={() => setShowOdds(false)} />
-          </ScrollView>
+          </View>
         </View>
       </Modal>
     </Page>
@@ -658,15 +638,23 @@ export function InventoryPage() {
             (candidate) => candidate.id === owned.ovenId,
           )!;
           return (
-            <Pressable
+            <View
               key={oven.id}
-              onPress={() => game.equipOven(oven.id)}
               style={[s.oven, { borderColor: RARITY_COLORS[oven.rarity] }]}
             >
               <Text style={s.ovenName}>
                 {game.equippedOvenId === oven.id ? `${words.equipped} · ` : ""}
                 {ovenDisplayName(oven.id, oven.name, language)}
               </Text>
+              <Text style={s.info}>
+                Lv.{owned.upgradeLevel ?? 0} · 🍪 ×{(oven.click * 1.1 ** (owned.upgradeLevel ?? 0)).toFixed(2)}
+                {" · "}CPS ×{(oven.cps * 1.1 ** (owned.upgradeLevel ?? 0)).toFixed(2)}
+              </Text>
+              <Button
+                title={`${labels[language].upgrades} +10% · 🍪 ${fmt(getOvenUpgradeCost(owned))}`}
+                disabled={game.cookies < getOvenUpgradeCost(owned)}
+                onPress={() => game.upgradeOven(oven.id)}
+              />
               <Text style={s.info}>
                 {words.owned} {owned.level} · {words.fusion} {owned.fusion} (x
                 {Math.pow(1.25, owned.fusion).toFixed(2)}) · {words.trait} {traitNames[language][owned.trait] ?? owned.trait}
@@ -684,7 +672,7 @@ export function InventoryPage() {
                   onPress={() => game.dismantleOven(oven.id)}
                 />
               </View>
-            </Pressable>
+            </View>
           );
         })}
     </Page>
@@ -749,30 +737,12 @@ export function UpgradesPage() {
 export function AchievementsPage() {
   const game = useGameStore();
   const words = progressText[game.settings.language ?? "ko"];
-  const entries = [
-    [words.achievements[0][0], game.taps >= 1, words.achievements[0][1]],
-    [
-      words.achievements[1][0],
-      game.buildings.grandma_oven >= 1,
-      words.achievements[1][1],
-    ],
-    [
-      words.achievements[2][0],
-      game.ovens.filter((oven) => oven.level > 0).length >= 5,
-      words.achievements[2][1],
-    ],
-    [words.achievements[3][0], game.chocoChips >= 10, words.achievements[3][1]],
-    [words.achievements[4][0], game.rebirths >= 1, words.achievements[4][1]],
-    [words.achievements[5][0], game.resets >= 1, words.achievements[5][1]],
-  ];
-  const secretEntries = [
-    [words.secretAchievements[0][0], game.totalDraws >= 50, words.secretAchievements[0][1]],
-    [
-      words.secretAchievements[1][0],
-      game.ovens.find((oven) => oven.ovenId === "oven-16")?.level! >= 2,
-      words.secretAchievements[1][1],
-    ],
-  ];
+  const entries = STANDARD_ACHIEVEMENTS.map((id, i) => [
+    words.achievements[i][0], game.achievements.includes(id), words.achievements[i][1],
+  ]);
+  const secretEntries = SECRET_ACHIEVEMENTS.map((id, i) => [
+    words.secretAchievements[i][0], game.achievements.includes(id), words.secretAchievements[i][1],
+  ]);
   return (
     <Page title={`🏆 ${labels[game.settings.language ?? "ko"].achievements}`}>
       {entries.map(([title, done, description]) => (
@@ -903,6 +873,7 @@ const s = StyleSheet.create({
   },
   resultCard: {
     width: "100%",
+    maxHeight: "100%",
     maxWidth: 400,
     alignItems: "center",
     gap: 10,
@@ -911,6 +882,8 @@ const s = StyleSheet.create({
     borderWidth: 5,
     backgroundColor: "#fff8e9",
   },
+  resultList: { flexShrink: 1, width: "100%" },
+  resultListContent: { gap: 12 },
   resultSparkle: { color: "#d7a221", fontSize: 24, letterSpacing: 5 },
   resultTitle: { color: "#401923", fontSize: 22, fontWeight: "900" },
   resultRarity: { fontSize: 17, fontWeight: "900" },
@@ -924,11 +897,13 @@ const s = StyleSheet.create({
   oddsCard: {
     width: "100%",
     maxWidth: 480,
-    maxHeight: "82%",
+    maxHeight: "100%",
+    padding: 16,
+    gap: 12,
     backgroundColor: "#fff8e9",
     borderRadius: 24,
   },
-  oddsContent: { padding: 20, gap: 10 },
+  oddsContent: { gap: 10 },
   oddsRow: {
     backgroundColor: "#fff",
     borderRadius: 12,
