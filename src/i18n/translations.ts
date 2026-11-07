@@ -1,5 +1,15 @@
 export type GameLanguage = "ko" | "en" | "ja" | "zh" | "ar" | "de" | "ru";
 
+export const coreNames: Record<GameLanguage, Record<string, string>> = {
+  ko: { aurora: '오로라 코어의 결정', opternal: '이터널 코어의 혼합물', twilight: '황혼의 영혼', phoenix: '지구의 생성', infinity: '인피니티 코어' },
+  en: { aurora: 'Aurora Core Crystal', opternal: 'Eternal Core Mixture', twilight: 'Twilight Soul', phoenix: 'Creation of Earth', infinity: 'Infinity Core' },
+  ja: { aurora: 'オーロラコアの結晶', opternal: 'エターナルコアの混合物', twilight: '黄昏の魂', phoenix: '地球の創造', infinity: 'インフィニティコア' },
+  zh: { aurora: '极光核心结晶', opternal: '永恒核心混合物', twilight: '黄昏之魂', phoenix: '地球的创造', infinity: '无限核心' },
+  ar: { aurora: 'بلورة نواة الشفق', opternal: 'مزيج النواة الأبدية', twilight: 'روح الغسق', phoenix: 'نشأة الأرض', infinity: 'نواة اللانهاية' },
+  de: { aurora: 'Aurora-Kernkristall', opternal: 'Ewige Kernmischung', twilight: 'Dämmerungsseele', phoenix: 'Erschaffung der Erde', infinity: 'Unendlichkeitskern' },
+  ru: { aurora: 'Кристалл ядра Авроры', opternal: 'Смесь вечного ядра', twilight: 'Душа сумерек', phoenix: 'Создание Земли', infinity: 'Ядро бесконечности' },
+};
+
 type Labels = {
   home: string;
   draw: string;

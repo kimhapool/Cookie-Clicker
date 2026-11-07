@@ -1,7 +1,7 @@
 import { StatusBar } from "expo-status-bar";
 import * as Haptics from "expo-haptics";
 import { useAudioPlayer } from "expo-audio";
-import { LinearGradient } from "expo-linear-gradient";
+import { TapCookie } from "./src/components/TapCookie";
 import {
   Animated,
   AppState,
@@ -21,11 +21,12 @@ import { useEffect, useRef, useState } from "react";
 import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { getClickGain, getCps, isTutorialReady, loadGame, useGameStore } from "./src/store/useGameStore";
 import { OVENS } from "./src/data/ovens";
-import { BUILDINGS } from "./src/data/buildings";
+import { AutomationVista } from "./src/components/AutomationVista";
+import { allocateProduction, type ProductionEvent } from "./src/utils/production";
 import { MISSIONS, getMissionProgress } from "./src/data/missions";
 import { STANDARD_ACHIEVEMENTS, SECRET_ACHIEVEMENTS } from "./src/data/achievements";
 import { accountText, homeText, labels, mailDisplay, missionDisplay, modalText, ovenDisplayName, pageText, progressText } from "./src/i18n/translations";
-import { compactNumber } from "./src/utils/numbers";
+import { compactNumber, productionNumber } from "./src/utils/numbers";
 import {
   AchievementsPage,
   AutomationPage,
@@ -40,80 +41,6 @@ const WINE = "#dbc3a0",
   BOARD = "#e7f4ff",
   GOLD = "#ffca45",
   INK = "#3b1620";
-function Cookie({
-  small = false,
-  onPress,
-  size,
-  rebirths = 0,
-}: {
-  small?: boolean;
-  onPress?: () => void;
-  size?: number;
-  rebirths?: number;
-}) {
-  const { width, height } = useWindowDimensions();
-  const s = small
-    ? 54
-    : size ?? Math.min(190, Math.max(124, width * 0.46), Math.max(124, height * 0.19));
-  if (!small)
-    return (
-      <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel="🍪" style={{ width: s, height: s, alignItems: "center", justifyContent: "center" }}>
-        {rebirths > 0 && (
-          <View
-            pointerEvents="none"
-            style={[
-              s0.rebirthHalo,
-              {
-                width: s * 1.12,
-                height: s * 1.12,
-                borderRadius: s,
-                borderColor: ["#ffca45", "#ff9a60", "#ff74be", "#8be2ff", "#b993ff"][rebirths % 5],
-              },
-            ]}
-          />
-        )}
-        <Image
-          source={require("./assets/cookie-cutout.png")}
-          style={{ width: s, height: s }}
-          resizeMode="contain"
-        />
-        {rebirths > 0 && (
-          <Text pointerEvents="none" style={[s0.rebirthMark, { fontSize: Math.max(12, s * 0.12) }]}>
-            {rebirths % 5 === 1 ? "✦" : rebirths % 5 === 2 ? "✧" : rebirths % 5 === 3 ? "☾" : rebirths % 5 === 4 ? "✺" : "✹"}
-          </Text>
-        )}
-      </Pressable>
-    );
-  return (
-    <View style={[s0.cookie, { width: s, height: s, borderRadius: s / 2 }]}>
-      <View style={[s0.cookieIn, { borderRadius: s / 2 }]}>
-        {[
-          [22, 20],
-          [53, 17],
-          [70, 40],
-          [31, 51],
-          [57, 58],
-          [30, 71],
-          [63, 70],
-        ].map(([l, t], i) => (
-          <View
-            key={i}
-            style={[
-              s0.chip,
-              {
-                left: `${l}%`,
-                top: `${t}%`,
-                width: 7,
-                height: 10,
-                borderRadius: 20,
-              },
-            ]}
-          />
-        ))}
-      </View>
-    </View>
-  );
-}
 function Stat({
   a,
   b,
@@ -162,6 +89,11 @@ export default function App() {
     const { DrawPreview } = require('./src/dev/DrawPreview');
     return <DrawPreview />;
   }
+  if (__DEV__ && Platform.OS === 'web' && typeof window !== 'undefined'
+    && new URLSearchParams(window.location.search).get('preview') === 'automation') {
+    const { AutomationPreview } = require('./src/dev/AutomationPreview');
+    return <AutomationPreview />;
+  }
   return <RestoreGame />;
 }
 
@@ -206,17 +138,11 @@ function GameApp() {
   const [rebirthOpen, setRebirthOpen] = useState(false);
   const [panel, setPanel] = useState<"mail" | "missions" | null>(null);
   const [resetStage, setResetStage] = useState(0);
-  const [lastGain, setLastGain] = useState(0);
   const [achievementToast, setAchievementToast] = useState<string | null>(null);
-  const [automationGain, setAutomationGain] = useState(0);
+  const [productionEvent, setProductionEvent] = useState<ProductionEvent | null>(null);
   const [clock, setClock] = useState(Date.now());
-  const [tapStage, setTapStage] = useState(0);
-  const tapTimes = useRef<number[]>([]);
   const appState = useRef(AppState.currentState);
   const shownAchievements = useRef(new Set(useGameStore.getState().achievements));
-  const ripple = useRef(new Animated.Value(0)).current;
-  const bite = useRef(new Animated.Value(0)).current;
-  const rainbowSpin = useRef(new Animated.Value(0)).current;
   const resetFlash = useRef(new Animated.Value(0)).current;
   const { width, height } = useWindowDimensions();
   const phone = width < 500;
@@ -226,15 +152,12 @@ function GameApp() {
   const home = homeText[game.settings.language ?? "ko"];
   const modal = modalText[game.settings.language ?? "ko"];
   const account = accountText[game.settings.language ?? "ko"];
-  const ownedBuildings = BUILDINGS.filter(
-    (building) => (game.buildings[building.id] || 0) > 0,
-  );
   const [playSize, setPlaySize] = useState({ width: 300, height: 220 });
   const leftWidth = phone ? 56 : 72;
   const rightWidth = phone ? 72 : 100;
   const cookieSize = Math.max(64, Math.min(320,
     playSize.width - leftWidth - rightWidth - 34,
-    playSize.height - 54,
+    playSize.height - 74,
   ));
   const popPlayer = useAudioPlayer(require("./assets/audio/5D.wav"));
   const drumPlayer = useAudioPlayer(require("./assets/audio/MV.wav"));
@@ -263,15 +186,15 @@ function GameApp() {
     game.ensureAllOvens();
     game.checkOffline();
     let lastTick = Date.now();
-    let clearGain: ReturnType<typeof setTimeout> | undefined;
     const settle = () => {
       const now = Date.now();
       const gain = game.tick((now - lastTick) / 1000);
       lastTick = now;
       if (gain) {
-        setAutomationGain(gain);
-        clearTimeout(clearGain);
-        clearGain = setTimeout(() => setAutomationGain(0), 700);
+        const { buildings: counts, buildingUpgrades } = useGameStore.getState();
+        setProductionEvent(previous => ({ sequence: (previous?.sequence ?? 0) + 1,
+          gains: allocateProduction(gain, counts, buildingUpgrades),
+        }));
       }
     };
     const timer = setInterval(() => {
@@ -285,7 +208,7 @@ function GameApp() {
       }
       appState.current = nextState;
     });
-    return () => { subscription.remove(); clearInterval(timer); clearTimeout(clearGain); };
+    return () => { subscription.remove(); clearInterval(timer); };
   }, [game.tick, game.checkOffline, game.ensureAllOvens]);
   useEffect(() => {
     const calm = game.settings.musicStyle !== "exciting";
@@ -329,54 +252,8 @@ function GameApp() {
     const timer = setTimeout(() => setAchievementToast(null), 2600);
     return () => clearTimeout(timer);
   }, [achievementToast]);
-  useEffect(() => {
-    if (tapStage !== 3) {
-      rainbowSpin.stopAnimation();
-      rainbowSpin.setValue(0);
-      return;
-    }
-    const animation = Animated.loop(
-      Animated.timing(rainbowSpin, {
-        toValue: 1,
-        duration: 1800,
-        useNativeDriver: true,
-      }),
-    );
-    animation.start();
-    return () => animation.stop();
-  }, [rainbowSpin, tapStage]);
   const tapCookie = () => {
     const gain = game.click();
-    const now = Date.now();
-    tapTimes.current = [
-      ...tapTimes.current.filter((time) => now - time < 850),
-      now,
-    ];
-    setTapStage(
-      tapTimes.current.length >= 15
-        ? 3
-        : tapTimes.current.length >= 8
-          ? 2
-          : tapTimes.current.length >= 3
-            ? 1
-            : 0,
-    );
-    setLastGain(gain);
-    setTimeout(() => setLastGain(0), 700);
-    ripple.setValue(0);
-    bite.setValue(0);
-    Animated.parallel([
-      Animated.timing(ripple, {
-        toValue: 1,
-        duration: 560,
-        useNativeDriver: true,
-      }),
-      Animated.timing(bite, {
-        toValue: 1,
-        duration: 280,
-        useNativeDriver: true,
-      }),
-    ]).start();
     if (game.settings.vibration)
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(
         () => undefined,
@@ -390,9 +267,9 @@ function GameApp() {
             : game.settings.tapSound === "crumble"
               ? crumblePlayer
               : bitePlayer;
-      player.seekTo(0);
-      player.play();
+      void player.seekTo(0).then(() => player.play()).catch(() => undefined);
     }
+    return gain;
   };
   const fullTabs = [
     `🏠\n${text.home}`,
@@ -424,7 +301,7 @@ function GameApp() {
           onPress={() => setProfileOpen(true)}
           style={[s0.avatar, phone && s0.avatarPhone]}
         >
-          <Cookie small />
+          <Image source={require("./assets/cookie-cutout.png")} style={{ width: 46, height: 46 }} resizeMode="contain" />
         </Pressable>
         <View style={[s0.resources, phone && s0.resourcesPhone]}>
         <View style={[s0.res, phone && s0.resPhone]}>
@@ -444,7 +321,7 @@ function GameApp() {
         </View>
         <View style={[s0.res, s0.cps, phone && s0.resPhone]}>
           <Text numberOfLines={1} style={[s0.resT, phone && s0.resTPhone]}>
-            ⚡ CPS {compactNumber(cps, game.settings.language ?? "ko")}
+            ⚡ CPS {productionNumber(cps, game.settings.language ?? "ko")}
           </Text>
         </View>
         </View>
@@ -506,7 +383,6 @@ function GameApp() {
             <Stat a={home.click} b={`+${getClickGain(game)}`} />
             <Stat a={home.rebirth} b={`x${Math.pow(1.5, game.rebirths).toFixed(2)}`} />
           </View>
-          <Text style={s0.work}>{home.workshop}</Text>
           <View style={[s0.boostRow, short && s0.boostRowShort]}>
             <Pressable
               disabled={game.boostUntil > Date.now() || game.cookies < 5000}
@@ -519,11 +395,11 @@ function GameApp() {
                 <Text style={s0.boostTitle}>🔥 {home.doublePotion}</Text>
               <View style={s0.boostMeta}>
                 <Text style={s0.boostSub}>
-                  {game.boostUntil > clock
+                  {game.boostUntil > clock && game.boostMultiplier === 2
                     ? `${home.active} · ${Math.ceil((game.boostUntil - clock) / 1000)}${home.seconds}`
                     : home.doubleCost}
                 </Text>
-                <View style={s0.boostUse}><Text style={s0.boostUseText}>{game.boostUntil > clock ? "✓" : home.use}</Text></View>
+                <View style={s0.boostUse}><Text style={s0.boostUseText}>{game.boostUntil > clock && game.boostMultiplier === 2 ? "✓" : home.use}</Text></View>
               </View>
             </Pressable>
             <Pressable
@@ -538,15 +414,15 @@ function GameApp() {
                 <Text style={s0.boostTitle}>🌈 {home.feverTime}</Text>
               <View style={s0.boostMeta}>
                 <Text style={s0.boostSub}>
-                  {game.boostUntil > clock
+                  {game.boostUntil > clock && game.boostMultiplier === 4
                     ? `${home.active} · ${Math.ceil((game.boostUntil - clock) / 1000)}${home.seconds}`
                     : home.feverCost}
                 </Text>
-                <View style={s0.boostUse}><Text style={s0.boostUseText}>{game.boostUntil > clock ? "✓" : home.use}</Text></View>
+                <View style={s0.boostUse}><Text style={s0.boostUseText}>{game.boostUntil > clock && game.boostMultiplier === 4 ? "✓" : home.use}</Text></View>
               </View>
             </Pressable>
           </View>
-          <View style={s0.play} onLayout={({ nativeEvent }) => {
+          <View style={[s0.play, { minHeight: Math.max(232, Math.min(320, width - leftWidth - rightWidth - 72, height * 0.29) + 74) }]} onLayout={({ nativeEvent }) => {
             const { width: w, height: h } = nativeEvent.layout;
             setPlaySize((prev) => prev.width === w && prev.height === h ? prev : { width: w, height: h });
           }}>
@@ -583,116 +459,8 @@ function GameApp() {
               </Pressable>
             </View>
             <View style={s0.cookieZone}>
-              <View
-                style={[
-                  s0.cookieStage,
-                  { width: cookieSize + 22, height: cookieSize + 22 },
-                ]}
-              >
-                {tapStage > 0 && (
-                  tapStage === 3 ? (
-                    <Animated.View
-                      style={[
-                        s0.tapAura,
-                        {
-                          transform: [
-                            {
-                              rotate: rainbowSpin.interpolate({
-                                inputRange: [0, 1],
-                                outputRange: ["0deg", "360deg"],
-                              }),
-                            },
-                          ],
-                        },
-                      ]}
-                    >
-                      <LinearGradient
-                        colors={["#ff4dcc", "#ffca45", "#35b9ff", "#9e62ff"]}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 1 }}
-                        style={s0.auraFill}
-                      />
-                    </Animated.View>
-                  ) : (
-                    <LinearGradient
-                      colors={tapStage === 2 ? ["#ff9b46", "#d34b71"] : ["#ffcf52", "#ff8a4a"]}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 1 }}
-                      style={s0.tapAura}
-                    />
-                  )
-                )}
-                {tapStage === 3 && (
-                  <>
-                    <Text pointerEvents="none" style={[s0.sparkle, s0.sparkleOne]}>✦</Text>
-                    <Text pointerEvents="none" style={[s0.sparkle, s0.sparkleTwo]}>✧</Text>
-                    <Text pointerEvents="none" style={[s0.sparkle, s0.sparkleThree]}>✦</Text>
-                    <Text pointerEvents="none" style={[s0.sparkle, s0.sparkleFour]}>✧</Text>
-                  </>
-                )}
-                <Animated.View
-                  pointerEvents="none"
-                  style={[
-                    s0.ripple,
-                    {
-                      opacity: ripple.interpolate({
-                        inputRange: [0, 0.1, 1],
-                        outputRange: [0, 0.72, 0],
-                      }),
-                      transform: [
-                        {
-                          scale: ripple.interpolate({
-                            inputRange: [0, 1],
-                            outputRange: [0.7, 1.55],
-                          }),
-                        },
-                      ],
-                    },
-                  ]}
-                />
-                <Cookie size={cookieSize} rebirths={game.rebirths} onPress={tapCookie} />
-                {lastGain > 0 && (
-                  <Text pointerEvents="none" style={s0.gain}>
-                    +{lastGain.toLocaleString("ko-KR")}
-                  </Text>
-                )}
-                <Animated.View
-                  pointerEvents="none"
-                  style={[
-                    s0.bite,
-                    {
-                      opacity: bite.interpolate({
-                        inputRange: [0, 0.18, 1],
-                        outputRange: [0, 1, 0],
-                      }),
-                      transform: [
-                        {
-                          scale: bite.interpolate({
-                            inputRange: [0, 0.18, 1],
-                            outputRange: [0.3, 1, 1.15],
-                          }),
-                        },
-                      ],
-                    },
-                  ]}
-                />
-                {lastGain > 0 && (
-                  <>
-                    <View
-                      pointerEvents="none"
-                      style={[s0.crumb, s0.crumbOne]}
-                    />
-                    <View
-                      pointerEvents="none"
-                      style={[s0.crumb, s0.crumbTwo]}
-                    />
-                    <View
-                      pointerEvents="none"
-                      style={[s0.crumb, s0.crumbThree]}
-                    />
-                  </>
-                )}
-              </View>
+              <TapCookie size={cookieSize} rebirths={game.rebirths} language={game.settings.language}
+                boost={game.boostUntil > clock ? game.boostMultiplier : 1} onTap={tapCookie} />
               <Text style={s0.tap}>{text.tapCookie}</Text>
             </View>
             <View style={[s0.right, short && s0.rightShort, { width: rightWidth }]}>
@@ -721,44 +489,8 @@ function GameApp() {
               />
             </View>
           </View>
-          {ownedBuildings.length > 0 && (
-            <View style={[s0.automationVista, short && s0.automationVistaShort]}>
-              <View style={s0.automationVistaHead}>
-                <Text style={s0.automationVistaTitle}>{home.auto} {modal.autoBakery}</Text>
-                <Text style={s0.automationVistaCps}>+{compactNumber(cps, game.settings.language ?? "ko")}{home.perSecond}</Text>
-              </View>
-              {automationGain > 0 && (
-                <Text style={s0.automationVistaGain}>+{compactNumber(automationGain, game.settings.language ?? "ko")}</Text>
-              )}
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s0.automationVistaItems}>
-                {ownedBuildings.map((building, index) => (
-                  <View key={building.id} style={s0.automationVistaLot}>
-                    <View style={s0.automationVistaStack}>
-                      {Array.from({ length: Math.min(3, game.buildings[building.id]) }, (_, stackIndex) => (
-                        <Text
-                          key={stackIndex}
-                          style={[
-                            s0.automationVistaEmoji,
-                            {
-                              fontSize: 26 + index * 3,
-                              transform: [
-                                { translateX: stackIndex * 5 },
-                                { translateY: -stackIndex * 3 },
-                              ],
-                              opacity: 1 - stackIndex * 0.18,
-                            },
-                          ]}
-                        >
-                          {building.emoji}
-                        </Text>
-                      ))}
-                    </View>
-                    <Text style={s0.automationVistaCount}>×{game.buildings[building.id]}</Text>
-                  </View>
-                ))}
-              </ScrollView>
-            </View>
-          )}
+          <AutomationVista counts={game.buildings} upgrades={game.buildingUpgrades} totalCps={cps} event={productionEvent}
+            language={game.settings.language} active={tab === 0} />
           <Pressable
             disabled={!canOpenTab(1)}
             onPress={() => { setHomeOdds(false); setTab(1); }}
@@ -1449,135 +1181,7 @@ const s0 = StyleSheet.create({
   sideE: { fontSize: 20 },
   sideT: { fontSize: 12, fontWeight: "900", color: INK },
   cookieZone: { flex: 1, alignItems: "center", justifyContent: "center" },
-  cookieStage: {
-    alignItems: "center",
-    justifyContent: "center",
-    position: "relative",
-  },
-  rebirthHalo: { position: "absolute", borderWidth: 5, shadowOpacity: 0.9, shadowRadius: 13, shadowColor: "#fff4a6", elevation: 8 },
-  rebirthMark: { position: "absolute", color: "#fff6c7", textShadowColor: "#a959cf", textShadowRadius: 5, fontWeight: "900", top: "11%", right: "13%", zIndex: 4 },
-  tapAura: { position: "absolute", inset: 0, borderRadius: 999, opacity: 0.78, overflow: "hidden" },
-  auraFill: { flex: 1, borderRadius: 999 },
-  sparkle: {
-    position: "absolute",
-    zIndex: 6,
-    color: "#fff7af",
-    fontSize: 23,
-    textShadowColor: "#ff54d6",
-    textShadowRadius: 8,
-  },
-  sparkleOne: { top: -4, left: "16%" },
-  sparkleTwo: { top: "22%", right: -6 },
-  sparkleThree: { bottom: 2, left: -4 },
-  sparkleFour: { bottom: "18%", right: "8%" },
-  ripple: {
-    position: "absolute",
-    width: "86%",
-    height: "86%",
-    borderRadius: 999,
-    borderWidth: 5,
-    borderColor: "#fff4ae",
-  },
-  bite: {
-    position: "absolute",
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: BOARD,
-    right: -2,
-    top: 7,
-    zIndex: 3,
-  },
-  crumb: {
-    position: "absolute",
-    width: 9,
-    height: 9,
-    borderRadius: 9,
-    backgroundColor: "#a95718",
-    zIndex: 4,
-  },
-  crumbOne: { top: 12, left: 5 },
-  crumbTwo: { bottom: 15, right: 5, width: 7, height: 7 },
-  crumbThree: { top: "50%", left: -3, width: 6, height: 6 },
-  gain: {
-    position: "absolute",
-    top: -10,
-    backgroundColor: "#fff8e9",
-    borderRadius: 18,
-    borderWidth: 2,
-    borderColor: "#dba020",
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    color: "#8a1832",
-    fontWeight: "900",
-    fontSize: 18,
-    elevation: 8,
-  },
-  shadow: {
-    position: "absolute",
-    width: 290,
-    height: 70,
-    borderRadius: 60,
-    backgroundColor: "rgba(82,58,43,.22)",
-    transform: [{ translateY: 110 }],
-  },
-  cookie: {
-    backgroundColor: "#bd6818",
-    borderWidth: 9,
-    borderColor: "#ba6113",
-    padding: 10,
-    elevation: 9,
-  },
-  cookieIn: {
-    flex: 1,
-    backgroundColor: "#e8ad5a",
-    borderWidth: 10,
-    borderColor: "#d0842e",
-    overflow: "hidden",
-  },
-  chip: {
-    position: "absolute",
-    backgroundColor: "#67300b",
-    borderWidth: 2,
-    borderColor: "#8a4614",
-  },
   tap: { marginTop: 10, color: INK, fontWeight: "900", fontSize: 13, textAlign: "center" },
-  automationVista: {
-    minHeight: 58,
-    marginTop: 7,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 18,
-    backgroundColor: "#d9edff",
-    borderWidth: 2,
-    borderColor: "#bad5ef",
-  },
-  automationVistaShort: { minHeight: 46, marginTop: 4, paddingVertical: 4 },
-  automationVistaHead: { flexDirection: "row", alignItems: "center" },
-  automationVistaTitle: { color: INK, fontSize: 12, fontWeight: "900" },
-  automationVistaCps: {
-    marginLeft: "auto",
-    color: "#28764a",
-    fontSize: 12,
-    fontWeight: "900",
-  },
-  automationVistaItems: {
-    marginTop: 2,
-    flexDirection: "row",
-    alignItems: "flex-end",
-    gap: 8,
-    paddingRight: 5,
-  },
-  automationVistaLot: { minWidth: 52, minHeight: 40, alignItems: "center", justifyContent: "flex-end", borderRadius: 11, backgroundColor: "#ecf7ff", borderWidth: 1, borderColor: "#bedcf1", paddingHorizontal: 5 },
-  automationVistaStack: { height: 29, minWidth: 30, flexDirection: "row", alignItems: "flex-end", justifyContent: "center" },
-  automationVistaEmoji: { lineHeight: 31, marginLeft: -10 },
-  automationVistaCount: {
-    marginTop: -6,
-    color: INK,
-    fontSize: 10,
-    fontWeight: "900",
-  },
-  automationVistaGain: { position: "absolute", right: 12, bottom: 9, color: "#23713b", fontWeight: "900", fontSize: 12, backgroundColor: "#e8fff0", borderRadius: 10, paddingHorizontal: 6, paddingVertical: 2, borderWidth: 1, borderColor: "#56a86a", zIndex: 3 },
   promo: {
     height: 82,
     borderRadius: 26,

@@ -7,3 +7,9 @@ export const BUILDINGS:Building[]=[
  {id:'research_lab',name:'연구소',emoji:'🔬',baseCost:2200000,baseCps:22000},
  {id:'space_bakery',name:'우주 베이커리',emoji:'🚀',baseCost:28000000,baseCps:280000}
 ];
+
+export const buildingMultiplier = (level: number) => Math.pow(1.2, level);
+export function buildingUpgradeCost(id: string, level: number) {
+ const building = BUILDINGS.find(item => item.id === id);
+ return building ? Math.floor(building.baseCost * 10 * Math.pow(1.75, level)) : Infinity;
+}

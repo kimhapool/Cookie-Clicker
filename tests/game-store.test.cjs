@@ -307,3 +307,81 @@ test('57 cookie source tiles cover the entire image with no missing or overlappi
     });
   });
 });
+
+test('building receipts conserve credited income and include global production multipliers', () => {
+  const { allocateProduction, buildingProduction } = require('../src/utils/production.ts');
+  const counts = { grandma_oven: 9, bakery: 3, cookie_factory: 2, space_bakery: 1 };
+  for (const gain of [1, 2, 5, 100, 423411, 1000000000]) {
+    const receipt = allocateProduction(gain, counts);
+    assert.equal(Object.values(receipt).reduce((sum, value) => sum + value, 0), gain);
+    assert.ok(Object.values(receipt).every(value => Number.isSafeInteger(value) && value >= 0));
+    assert.equal(receipt.research_lab, undefined);
+  }
+  assert.deepEqual(allocateProduction(13, { grandma_oven: 1, bakery: 1 }), { grandma_oven: 1, bakery: 12 });
+  assert.deepEqual(allocateProduction(0, counts), {});
+  assert.deepEqual(allocateProduction(NaN, counts), {});
+  assert.deepEqual(allocateProduction(100, {}), {});
+  store.setState({ buildings: counts, rebirths: 2, upgrades: { click: 0, cps: 3, global: 2 } });
+  const total = getCps(get());
+  const shares = BUILDINGS.map(building => buildingProduction(building.id, total, counts));
+  assert.ok(Math.abs(shares.reduce((a, b) => a + b, 0) - total) < 0.000001);
+  assert.ok(buildingProduction('grandma_oven', total, counts) > 9);
+  assert.equal(buildingProduction('missing', total, counts), 0);
+});
+
+test('building upgrades affect only their type, persist, and survive selling and rebirth', async () => {
+  const { buildingUpgradeCost } = require('../src/data/buildings.ts');
+  const { allocateProduction, buildingProduction } = require('../src/utils/production.ts');
+  assert.equal(get().upgradeBuilding('grandma_oven'), false);
+  store.setState({ cookies: 10000000, buildings: { ...initial.buildings, grandma_oven: 1, bakery: 1 } });
+  const before = get().cookies;
+  assert.equal(get().upgradeBuilding('grandma_oven'), true);
+  assert.equal(get().cookies, before - 1000);
+  assert.equal(getCps(get()), 13.2);
+  assert.equal(buildingUpgradeCost('grandma_oven', 1), 1750);
+  assert.equal(get().upgradeBuilding('missing'), false);
+  assert.equal(get().upgradeBuilding('space_bakery'), false);
+  const receipts = allocateProduction(132, get().buildings, get().buildingUpgrades);
+  assert.deepEqual(receipts, { grandma_oven: 12, bakery: 120 });
+  assert.equal(buildingProduction('grandma_oven', getCps(get()), get().buildings, get().buildingUpgrades), 1.2);
+  const snapshot = get().buildingUpgrades;
+  await store.persist.rehydrate();
+  assert.deepEqual(get().buildingUpgrades, snapshot);
+  assert.equal(get().rebirth(), true);
+  assert.equal(get().buildingUpgrades.grandma_oven, 1);
+  get().sellBuilding('grandma_oven');
+  assert.equal(get().buildingUpgrades.grandma_oven, 1);
+  assert.equal(get().upgradeBuilding('grandma_oven'), false);
+  const legacy = { ...initial, cookies: 123 };
+  delete legacy.buildingUpgrades;
+  // Start with fresh defaults, like a real process, then restore a pre-upgrade save.
+  store.setState(structuredClone(initial));
+  saved = JSON.stringify({ state: legacy, version: 0 });
+  await store.persist.rehydrate();
+  assert.deepEqual(get().buildingUpgrades, initial.buildingUpgrades);
+  assert.equal(get().cookies, 123);
+});
+
+test('trait draws target an unequipped oven, expose exact costs, and persist each next tier', async () => {
+  const { traitUpgrade } = require('../src/utils/traits.ts');
+  const targetId = OVENS[16].id;
+  store.setState({ epirus: { aurora: 1, opternal: 0, twilight: 0, phoenix: 0, infinity: 5 },
+    ovens: get().ovens.map(oven => ({ ...oven, core: 'aurora' })) });
+  const originalEquipped = get().equippedOvenId;
+  const target = () => get().ovens.find(oven => oven.ovenId === targetId);
+  for (const [next, cost] of [['샤이니', 1], ['반전', 2], ['글리치', 3]]) {
+    const plan = traitUpgrade(target(), get().epirus);
+    assert.equal(plan.cost, cost);
+    assert.equal(plan.next, next);
+    assert.equal(plan.canRoll, true);
+    assert.equal(get().rollTrait(targetId), true);
+    await store.persist.rehydrate();
+    assert.equal(target().trait, next);
+    assert.equal(get().equippedOvenId, originalEquipped);
+    assert.equal(get().ovens.find(oven => oven.ovenId === originalEquipped).trait, '없음');
+  }
+  assert.equal(get().epirus.aurora, 0);
+  assert.equal(get().epirus.infinity, 0);
+  assert.equal(traitUpgrade(target(), get().epirus).canRoll, false);
+  assert.equal(get().rollTrait(targetId), false);
+});

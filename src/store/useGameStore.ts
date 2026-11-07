@@ -1,12 +1,13 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
-import { BUILDINGS } from "../data/buildings";
+import { BUILDINGS, buildingMultiplier, buildingUpgradeCost } from "../data/buildings";
 import { OVENS, type Oven } from "../data/ovens";
 import { getDrawPool, type DrawBoost } from "../data/drawOdds";
 import { UPGRADES } from "../data/upgrades";
 import { MISSIONS, getMissionProgress, type MissionId } from "../data/missions";
 import { earnedAchievements } from "../data/achievements";
+import { traitUpgrade } from "../utils/traits";
 
 export type Trait = "없음" | "샤이니" | "반전" | "글리치";
 export type Epirus =
@@ -45,6 +46,7 @@ type Game = {
   rebirths: number;
   resets: number;
   buildings: Record<string, number>;
+  buildingUpgrades: Record<string, number>;
   ovens: OwnedOven[];
   equippedOvenId: string;
   lastSavedAt: number;
@@ -62,6 +64,7 @@ type Game = {
   click(): number;
   buyBuilding(id: string): boolean;
   sellBuilding(id: string): boolean;
+  upgradeBuilding(id: string): boolean;
   exchangeCookies(amount: number): boolean;
   exchangeChips(mode: "premium" | "dictionary" | "diary"): boolean;
   prepareDrawBoost(boost: DrawBoost): boolean;
@@ -127,6 +130,7 @@ const baseState = () => ({
   rebirths: 0,
   resets: 0,
   buildings: emptyBuildings(),
+  buildingUpgrades: emptyBuildings(),
   ovens: allOvens(),
   equippedOvenId: OVENS[0].id,
   lastSavedAt: Date.now(),
@@ -195,6 +199,7 @@ export const getCps = (
   state: Pick<
     Game,
     | "buildings"
+    | "buildingUpgrades"
     | "equippedOvenId"
     | "ovens"
     | "rebirths"
@@ -205,7 +210,7 @@ export const getCps = (
 ) =>
   BUILDINGS.reduce(
     (sum, building) =>
-      sum + (state.buildings[building.id] || 0) * building.baseCps,
+      sum + (state.buildings[building.id] || 0) * building.baseCps * buildingMultiplier(state.buildingUpgrades[building.id] ?? 0),
     0,
   ) *
   equipped(state).cps *
@@ -316,6 +321,15 @@ export const useGameStore = create<Game>()(
             state.cookies + Math.floor(buildingCost(id, count - 1) * 0.8),
           buildings: { ...state.buildings, [id]: count - 1 },
         });
+        return true;
+      },
+      upgradeBuilding: (id) => {
+        const state = get();
+        if (!BUILDINGS.some(building => building.id === id) || !(state.buildings[id] > 0)) return false;
+        const level = state.buildingUpgrades[id] ?? 0;
+        const cost = buildingUpgradeCost(id, level);
+        if (!Number.isFinite(cost) || state.cookies < cost) return false;
+        set({ cookies: state.cookies - cost, buildingUpgrades: { ...state.buildingUpgrades, [id]: level + 1 } });
         return true;
       },
       exchangeCookies: (amount) => {
@@ -460,14 +474,10 @@ export const useGameStore = create<Game>()(
       rollTrait: (id) => {
         const state = get();
         const owned = state.ovens.find((oven) => oven.ovenId === id);
-        if (!owned || owned.trait === "글리치") return false;
-        const traits: Trait[] = ["없음", "샤이니", "반전", "글리치"];
-        const next = traits[traits.indexOf(owned.trait) + 1];
-        const cost = traits.indexOf(next);
+        if (!owned) return false;
+        const { next, matching, universal, canRoll } = traitUpgrade(owned, state.epirus);
+        if (!canRoll) return false;
         const core = owned.core;
-        const matching = Math.min(state.epirus[core], cost);
-        const universal = cost - matching;
-        if (universal > (core === "infinity" ? 0 : state.epirus.infinity)) return false;
         set({
           epirus: { ...state.epirus,
             [core]: state.epirus[core] - matching,
@@ -645,6 +655,7 @@ export const useGameStore = create<Game>()(
         restored.upgrades = { ...current.upgrades, ...data?.upgrades };
         restored.epirus = { ...current.epirus, ...data?.epirus };
         restored.buildings = { ...current.buildings, ...data?.buildings };
+        restored.buildingUpgrades = { ...current.buildingUpgrades, ...data?.buildingUpgrades };
         return { ...restored, achievements: earnedAchievements(restored) };
       },
       partialize: (state) => {
@@ -652,6 +663,7 @@ export const useGameStore = create<Game>()(
           click,
           buyBuilding,
           sellBuilding,
+          upgradeBuilding,
           exchangeCookies,
           exchangeChips,
           prepareDrawBoost,

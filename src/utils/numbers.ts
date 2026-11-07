@@ -4,6 +4,12 @@ const locales: Record<NumberLanguage, string> = {
   ko: "ko-KR", en: "en-US", ja: "ja-JP", zh: "zh-CN", ar: "ar", de: "de-DE", ru: "ru-RU",
 };
 
+export function productionNumber(value: number, language: NumberLanguage = "ko") {
+  return Math.abs(value) < 1000
+    ? value.toLocaleString(locales[language], { maximumFractionDigits: 1 })
+    : compactNumber(value, language);
+}
+
 export function compactNumber(value: number, language: NumberLanguage = "ko") {
   const absolute = Math.abs(value);
   const eastAsian = language === "ko" || language === "ja" || language === "zh";

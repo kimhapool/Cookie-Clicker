@@ -1,5 +1,4 @@
 import {
-  Animated,
   Modal,
   Pressable,
   ScrollView,
@@ -7,18 +6,21 @@ import {
   Text,
   View,
 } from "react-native";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useState } from "react";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
-import { BUILDINGS } from "../data/buildings";
+import { BUILDINGS, buildingMultiplier, buildingUpgradeCost } from "../data/buildings";
 import { UPGRADES } from "../data/upgrades";
 import { STANDARD_ACHIEVEMENTS, SECRET_ACHIEVEMENTS } from "../data/achievements";
 import { OVENS, RARITY_COLORS, type Rarity, type Oven } from "../data/ovens";
 import { getDrawPool } from "../data/drawOdds";
-import { getOvenUpgradeCost, useGameStore } from "../store/useGameStore";
-import { automationText, buildingDisplayName, inventoryText, labels, ovenDisplayName, pageText, progressText, traitNames, upgradeDisplay } from "../i18n/translations";
+import { getCps, getOvenUpgradeCost, useGameStore } from "../store/useGameStore";
+import { coreNames, automationText, buildingDisplayName, inventoryText, labels, ovenDisplayName, pageText, progressText, traitNames, upgradeDisplay } from "../i18n/translations";
 
+import { TraitDraw } from "./TraitDraw";
 import { DrawSequence } from "./DrawSequence";
+import { BuildingStack } from "./AutomationVista";
+import { buildingProduction } from "../utils/production";
 
 const fmt = (value: number) => Math.floor(value).toLocaleString("ko-KR");
 const ovenChance = (
@@ -101,9 +103,6 @@ export function DrawPage({ initialOdds = false }: { initialOdds?: boolean }) {
     (acc, id) => ({ ...acc, [id]: (acc[id] ?? 0) + 1 }),
     {},
   );
-  const selected = game.ovens.find(
-    (oven) => oven.ovenId === game.equippedOvenId,
-  )!;
   const hasSecret = results.includes("oven-16");
   return (
     <Page title={`🎰 ${copy.drawTitle}`}>
@@ -192,20 +191,11 @@ export function DrawPage({ initialOdds = false }: { initialOdds?: boolean }) {
         </>
       ) : (
         <>
-          <Text style={s.section}>{copy.traitDraw}</Text>
-          <View style={s.card}>
-            <Text style={s.cardTitle}>
-              {(() => { const oven = OVENS.find((item) => item.id === selected.ovenId); return oven ? ovenDisplayName(oven.id, oven.name, language) : ""; })()}
-            </Text>
-            <Text style={s.info}>
-              {copy.currentTrait}: {traitNames[language][selected.trait] ?? selected.trait} · {copy.traitHint}
-            </Text>
-            <Button
-              title={copy.traitDraw}
-              disabled={selected.trait === "글리치"}
-              onPress={() => game.rollTrait(selected.ovenId)}
-            />
-          </View>
+          <TraitDraw ovens={game.ovens} equippedId={game.equippedOvenId} epirus={game.epirus} language={language}
+            onRoll={id => {
+              if (game.rollTrait(id) && game.settings.vibration)
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => undefined);
+            }} />
         </>
       )}
       <Modal
@@ -275,25 +265,9 @@ export function AutomationPage() {
   const language = game.settings.language ?? "ko";
   const copy = pageText[language];
   const words = automationText[language];
-  const [arriving, setArriving] = useState<string | null>(null);
-  const arrival = useRef(new Animated.Value(0)).current;
   const buyBuilding = (id: string) => {
-    if (!game.buyBuilding(id)) return;
-    setArriving(id);
-    arrival.setValue(0);
-    Animated.sequence([
-      Animated.timing(arrival, {
-        toValue: 0.72,
-        duration: 180,
-        useNativeDriver: true,
-      }),
-      Animated.spring(arrival, {
-        toValue: 1,
-        friction: 4,
-        tension: 150,
-        useNativeDriver: true,
-      }),
-    ]).start(() => setArriving(null));
+    if (game.buyBuilding(id) && game.settings.vibration)
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined);
   };
   return (
     <Page title={`🏭 ${labels[game.settings.language ?? "ko"].automation}`}>
@@ -301,49 +275,17 @@ export function AutomationPage() {
       {BUILDINGS.map((building) => {
         const count = game.buildings[building.id] || 0;
         const cost = Math.floor(building.baseCost * Math.pow(1.15, count));
+        const level = game.buildingUpgrades[building.id] ?? 0;
+        const upgradeCost = buildingUpgradeCost(building.id, level);
         return (
           <View key={building.id} style={s.card}>
             <Text style={s.cardTitle}>
               {building.emoji} {buildingDisplayName(building.id, building.name, language)}
             </Text>
             <Text style={s.info}>
-              {words.owned} {count} · {words.perSecond} {fmt(building.baseCps * count)}
+              {words.owned} {count} · {words.perSecond} {buildingProduction(building.id, getCps(game), game.buildings, game.buildingUpgrades).toLocaleString(language, { maximumFractionDigits: 1 })}
             </Text>
-            {count > 0 && (
-              <View style={s.productionLine}>
-                {Array.from({ length: Math.min(count, 8) }, (_, index) => {
-                  const isArriving = arriving === building.id && index === count - 1;
-                  return (
-                    <Animated.Text
-                      key={`${building.id}-${index}`}
-                      style={[
-                        s.productionIcon,
-                        isArriving && {
-                          opacity: arrival,
-                          transform: [
-                            {
-                              translateX: arrival.interpolate({
-                                inputRange: [0, 0.72, 1],
-                                outputRange: [-90, 8, 0],
-                              }),
-                            },
-                            {
-                              scale: arrival.interpolate({
-                                inputRange: [0, 0.72, 1],
-                                outputRange: [0.25, 1.26, 1],
-                              }),
-                            },
-                          ],
-                        },
-                      ]}
-                    >
-                      {building.emoji}
-                    </Animated.Text>
-                  );
-                })}
-                {count > 8 && <Text style={s.productionMore}>+{count - 8}</Text>}
-              </View>
-            )}
+            <BuildingStack building={building} count={count} />
             <View style={s.row}>
               <Button
                 title={`${fmt(cost)} ${copy.buy}`}
@@ -356,6 +298,10 @@ export function AutomationPage() {
                 onPress={() => game.sellBuilding(building.id)}
               />
             </View>
+            <Text style={s.info}>{labels[language].upgrades} Lv.{level} · ×{buildingMultiplier(level).toLocaleString(language, { maximumFractionDigits: 2 })}</Text>
+            <Button title={`${labels[language].upgrades} +20% · 🍪 ${fmt(upgradeCost)}`}
+              disabled={!count || game.cookies < upgradeCost}
+              onPress={() => game.upgradeBuilding(building.id)} />
           </View>
         );
       })}
@@ -473,6 +419,7 @@ export function InventoryPage() {
                 Lv.{owned.upgradeLevel ?? 0} · 🍪 ×{(oven.click * 1.1 ** (owned.upgradeLevel ?? 0)).toFixed(2)}
                 {" · "}CPS ×{(oven.cps * 1.1 ** (owned.upgradeLevel ?? 0)).toFixed(2)}
               </Text>
+              <Text style={s.info}>💠 {coreNames[language][owned.core]}</Text>
               <Button
                 title={`${labels[language].upgrades} +10% · 🍪 ${fmt(getOvenUpgradeCost(owned))}`}
                 disabled={game.cookies < getOvenUpgradeCost(owned)}
@@ -524,10 +471,6 @@ export function UpgradesPage() {
           onPress={() => game.rebirth()}
         />
       </View>
-      <View style={s.card}>
-        <Text style={s.cardTitle}>{words.sweetBoost}</Text>
-        <Text style={s.info}>{words.boostInfo}</Text>
-      </View>
       <Text style={s.section}>{words.permanent}</Text>
       {UPGRADES.map((upgrade) => {
         const display = upgradeDisplay(upgrade.id, upgrade.name, upgrade.description, language);
@@ -549,10 +492,7 @@ export function UpgradesPage() {
           </View>
         );
       })}
-      <View style={s.card}>
-        <Text style={s.cardTitle}>{words.production}</Text>
-        <Text style={s.info}>{words.productionInfo}</Text>
-      </View>
+
     </Page>
   );
 }
@@ -663,19 +603,6 @@ const s = StyleSheet.create({
   },
   disabled: { opacity: 0.4 },
   buttonText: { fontWeight: "900", color: "#401923" },
-  productionLine: {
-    minHeight: 43,
-    paddingHorizontal: 8,
-    borderRadius: 13,
-    backgroundColor: "#e8f4ff",
-    borderWidth: 1,
-    borderColor: "#c8dced",
-    flexDirection: "row",
-    alignItems: "center",
-    overflow: "hidden",
-  },
-  productionIcon: { fontSize: 27, marginRight: -4 },
-  productionMore: { marginLeft: 7, color: "#3c627c", fontWeight: "900" },
   oven: {
     backgroundColor: "#fff",
     borderLeftWidth: 6,
