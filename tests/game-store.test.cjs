@@ -28,7 +28,7 @@ require.extensions['.ts'] = (module, filename) => {
     fileName: filename,
   }).outputText, filename);
 };
-const { useGameStore: store, loadGame, getCps, getClickGain, getOvenUpgradeCost } = require('../src/store/useGameStore.ts');
+const { useGameStore: store, loadGame, getCps, getClickGain, getOvenMultipliers, getOvenUpgradeCost } = require('../src/store/useGameStore.ts');
 const { getDrawPool } = require('../src/data/drawOdds.ts');
 const { buildDrawSequence, COOKIE_TILES } = require('../src/utils/drawSequence.ts');
 const { MISSIONS } = require('../src/data/missions.ts');
@@ -37,6 +37,18 @@ const { OVENS } = require('../src/data/ovens.ts');
 const initial = structuredClone(JSON.parse(JSON.stringify(store.getState())));
 const get = () => store.getState();
 beforeEach(() => { store.setState(structuredClone(initial)); });
+
+test('inventory oven multipliers agree with production and tap gains across every oven and trait', () => {
+  for (const oven of OVENS) {
+    for (const trait of ['없음', '샤이니', '반전', '글리치']) {
+      const owned = { ...initial.ovens.find(item => item.ovenId === oven.id), ovenId: oven.id, trait, fusion: 3, upgradeLevel: 7 };
+      store.setState({ equippedOvenId: oven.id, ovens: [owned], buildings: { ...initial.buildings, grandma_oven: 1 } });
+      const multiplier = getOvenMultipliers(owned);
+      assert.equal(getClickGain(get()), Math.max(1, Math.floor(multiplier.click)), `${oven.id}/${trait} click`);
+      assert.ok(Math.abs(getCps(get()) - multiplier.cps) < 1e-9, `${oven.id}/${trait} CPS`);
+    }
+  }
+});
 
 test('slow save restoration does not write defaults before hydration; read failure is retryable', async () => {
   const fixture = { ...initial, cookies: 4321, taps: 567, settings: { ...initial.settings, music: false } };
@@ -138,6 +150,62 @@ test('offline income splits expired boost intervals, accumulates pending claims,
     assert.equal(get().claimOffline(), 0);
     assert.equal(get().cookies, 150);
     assert.equal(get().totalCookies, 150);
+  } finally { Date.now = realNow; }
+});
+
+test('exchange and crafting charge exact prices and consume prepared draw items once', async () => {
+  store.setState({ cookies: 1250000, chocoChips: 3009999 });
+  assert.equal(get().exchangeCookies(get().cookies), true);
+  assert.equal(get().cookies, 50000);
+  assert.equal(get().chocoChips, 3010011);
+  assert.equal(get().exchangeChips('premium'), true);
+  assert.equal(get().premiumChips, 1);
+  for (let i = 0; i < 3; i++) assert.equal(get().exchangeChips('dictionary'), true);
+  assert.equal(get().chocoChips, 11);
+  assert.equal(get().exchangeChips('dictionary'), false);
+  assert.equal(get().exchangeChips('diary'), true);
+  assert.equal(get().dictionaries, 0);
+  assert.equal(get().diaries, 1);
+  assert.equal(get().exchangeChips('diary'), false);
+  assert.equal(get().prepareDrawBoost('diary'), true);
+  await store.persist.rehydrate();
+  assert.equal(get().nextDrawBoost, 'diary');
+  assert.equal(get().diaries, 0);
+  assert.ok(get().draw(true));
+  assert.equal(get().premiumChips, 0);
+  assert.equal(get().nextDrawBoost, 'none');
+  assert.equal(get().prepareDrawBoost('diary'), false);
+});
+
+test('dismantling pays each specified crystal type while retaining the last copy', async () => {
+  store.setState({ ovens: get().ovens.map(oven => ({ ...oven, level: 2 })) });
+  for (const id of ['oven-8', 'oven-12', 'oven-13', 'oven-16', 'oven-10']) {
+    assert.equal(get().dismantleOven(id), true);
+    assert.equal(get().dismantleOven(id), false);
+  }
+  await store.persist.rehydrate();
+  assert.deepEqual(get().epirus, { aurora: 2, opternal: 4, twilight: 0, phoenix: 2, infinity: 5 });
+});
+
+test('timed boosts charge once, survive reload, and expire at their exact duration', async () => {
+  const realNow = Date.now;
+  let now = 900000;
+  Date.now = () => now;
+  try {
+    store.setState({ cookies: 30000, buildings: { ...initial.buildings, grandma_oven: 1 } });
+    for (const [multiplier, cost, duration] of [[2, 5000, 45000], [4, 25000, 20000]]) {
+      const balance = get().cookies;
+      assert.equal(get().activateBoost(multiplier), true);
+      assert.equal(get().cookies, balance - cost);
+      assert.equal(get().activateBoost(multiplier), false);
+      await store.persist.rehydrate();
+      assert.equal(getCps(get()), multiplier);
+      assert.equal(getClickGain(get()), multiplier);
+      now += duration;
+      assert.equal(getCps(get()), 1);
+      assert.equal(getClickGain(get()), 1);
+    }
+    assert.equal(get().cookies, 0);
   } finally { Date.now = realNow; }
 });
 
@@ -384,4 +452,106 @@ test('trait draws target an unequipped oven, expose exact costs, and persist eac
   assert.equal(get().epirus.infinity, 0);
   assert.equal(traitUpgrade(target(), get().epirus).canRoll, false);
   assert.equal(get().rollTrait(targetId), false);
+});
+
+test('batched draws match sequential odds, boosts, XP and inventory with one save per batch', () => {
+  const originalRandom = Math.random;
+  const seeded = () => {
+    let seed = 74131;
+    return () => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed / 4294967296; };
+  };
+  try {
+    for (const premium of [false, true]) for (const boost of ['none', 'dictionary', 'diary']) {
+      const fixture = { ...structuredClone(initial), chocoChips: 245, premiumChips: 245, drawXp: 19, drawLevel: 1, nextDrawBoost: boost };
+      store.setState(fixture);
+      Math.random = seeded();
+      const sequential = Array.from({ length: 245 }, () => get().draw(premium).id);
+      const expected = JSON.parse(JSON.stringify(get()));
+      store.setState(fixture);
+      Math.random = seeded();
+      writes = 0;
+      const batch = get().drawMany(premium, 500).map(oven => oven.id);
+      assert.deepEqual(batch, sequential);
+      assert.deepEqual(JSON.parse(JSON.stringify(get())), expected);
+      assert.equal(writes, 1);
+      assert.deepEqual(get().drawMany(premium, 1), []);
+    }
+    store.setState({ ...structuredClone(initial), chocoChips: 5000 });
+    writes = 0;
+    assert.equal(get().drawMany(false, 5000).length, 5000);
+    assert.equal(get().chocoChips, 0);
+    assert.equal(get().totalDraws, 5000);
+    assert.equal(writes, 1);
+    for (const invalid of [0, -1, 1.5, NaN, Infinity]) assert.deepEqual(get().drawMany(false, invalid), []);
+  } finally { Math.random = originalRandom; }
+});
+
+test('all seven languages cover every oven and UI dictionary without Korean fallback or corrupt text', () => {
+  const translations = require('../src/i18n/translations.ts');
+  const langs = ['ko', 'en', 'ja', 'zh', 'ar', 'de', 'ru'];
+  const dictionaries = ['labels', 'pageText', 'homeText', 'modalText', 'inventoryText', 'traitNames', 'progressText', 'accountText', 'automationText', 'coreNames'];
+  const check = (value, language) => {
+    if (typeof value === 'string') {
+      assert.ok(!value.includes('\uFFFD'), value);
+      if (language !== 'ko') assert.ok(!/[가-힣]/u.test(value), `${language}: ${value}`);
+    } else if (value && typeof value === 'object') Object.values(value).forEach(item => check(item, language));
+  };
+  for (const language of langs) {
+    for (const name of dictionaries) {
+      assert.deepEqual(Object.keys(translations[name][language]).sort(), Object.keys(translations[name].ko).sort(), `${name}/${language}`);
+      check(translations[name][language], language);
+    }
+    const names = OVENS.map(oven => translations.ovenDisplayName(oven.id, oven.name, language));
+    assert.equal(new Set(names).size, 17);
+    names.forEach(name => check(name, language));
+    assert.equal(translations.modalText[language].resetPrompts.length, 6);
+  }
+});
+
+test('building and oven enhancements qualify for the permanent-upgrade mission', () => {
+  const { getMissionProgress } = require('../src/data/missions.ts');
+  store.setState({ buildingUpgrades: { ...initial.buildingUpgrades, bakery: 1 } });
+  assert.equal(getMissionProgress('upgrade', get()), 1);
+  assert.equal(get().claimMission('upgrade'), true);
+  store.setState(structuredClone(initial));
+  store.setState({ ovens: get().ovens.map((oven, index) => ({ ...oven, upgradeLevel: index === 0 ? 1 : 0 })) });
+  assert.equal(getMissionProgress('upgrade', get()), 1);
+  assert.equal(get().claimMission('upgrade'), true);
+});
+
+test('full reset clears progress and pending rewards, keeps reset milestone, and persists defaults', async () => {
+  store.setState({
+    cookies: 9e9, totalCookies: 1e12, taps: 3000, totalDraws: 500, drawXp: 7, drawLevel: 26,
+    chocoChips: 99, premiumChips: 55, dictionaries: 3, diaries: 2, rebirths: 4, resets: 2,
+    buildings: { ...initial.buildings, bakery: 8 }, buildingUpgrades: { ...initial.buildingUpgrades, bakery: 3 },
+    ovens: [{ ovenId: 'oven-16', level: 8, upgradeLevel: 4, fusion: 2, trait: '글리치', core: 'phoenix' }],
+    equippedOvenId: 'oven-16', epirus: { aurora: 8, opternal: 7, twilight: 6, phoenix: 5, infinity: 4 },
+    pendingOffline: 9999, offlineSeconds: 3600, incomeRemainder: .8, boostUntil: Date.now()+60000,
+    boostMultiplier: 4, nextDrawBoost: 'diary', claimedMail: ['tutorial'], claimedMissions: ['tap'],
+    tutorialStep: 5, tutorialComplete: true, achievements: ['tap','draw50','secret'],
+    settings: { ...initial.settings, music: true, language: 'de' },
+  });
+  get().resetGame();
+  await store.persist.rehydrate();
+  for (const key of ['cookies','totalCookies','taps','totalDraws','drawXp','pendingOffline','offlineSeconds','incomeRemainder','boostUntil','rebirths','premiumChips','dictionaries','diaries']) assert.equal(get()[key], 0, key);
+  assert.equal(get().resets, 3);
+  assert.equal(get().drawLevel, 1);
+  assert.equal(get().chocoChips, 10);
+  assert.equal(get().boostMultiplier, 1);
+  assert.equal(get().nextDrawBoost, 'none');
+  assert.equal(get().tutorialComplete, false);
+  assert.equal(get().tutorialStep, 0);
+  assert.deepEqual(get().buildings, initial.buildings);
+  assert.deepEqual(get().buildingUpgrades, initial.buildingUpgrades);
+  assert.deepEqual(get().epirus, initial.epirus);
+  assert.deepEqual(get().settings, initial.settings);
+  assert.deepEqual(get().claimedMail, []);
+  assert.deepEqual(get().claimedMissions, []);
+  assert.equal(get().equippedOvenId, OVENS[0].id);
+  assert.equal(get().ovens.length, OVENS.length);
+  assert.ok(get().ovens.every(oven => oven.level===1 && oven.upgradeLevel===0 && oven.fusion===0 && oven.trait==='없음'));
+  assert.ok(get().achievements.includes('reset'));
+  assert.ok(!get().achievements.includes('tap'));
+  assert.ok(!get().achievements.includes('draw50'));
+  assert.ok(!get().achievements.includes('secret'));
 });

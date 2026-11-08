@@ -4,7 +4,7 @@
     "slug": "cookie-game",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/icon-original.png",
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": true
@@ -12,18 +12,21 @@
     "android": {
       "package": "com.kixhashroom.cookieclick",
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundImage": "./assets/android-icon-background.png",
-        "monochromeImage": "./assets/android-icon-monochrome.png"
+        "foregroundImage": "./assets/icon-original.png",
+        "backgroundColor": "#f6e6c7"
       },
       "predictiveBackGestureEnabled": false
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/icon-original.png"
     },
     "plugins": [
-      "expo-audio",
+      ["expo-audio", {
+        "microphonePermission": false,
+        "recordAudioAndroid": false,
+        "enableBackgroundRecording": false,
+        "enableBackgroundPlayback": false
+      }],
       "expo-asset"
     ]
   }

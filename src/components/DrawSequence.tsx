@@ -2,6 +2,8 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Image, Modal, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import { StatusBar } from 'expo-status-bar';
+import * as Haptics from 'expo-haptics';
 import Animated, {
   cancelAnimation, Easing, interpolate, useAnimatedStyle, useReducedMotion,
   useSharedValue, withTiming, ReduceMotion, useAnimatedReaction, type SharedValue,
@@ -14,9 +16,9 @@ import { buildDrawSequence, COOKIE_TILES, FLIGHT_DURATION, SECRET_DURATION } fro
 const COOKIE = require('../../assets/cookie-cutout.png');
 const SPECTRUM = ['#ff5287', '#ffbf56', '#e9fb83', '#68f6cf', '#61bdff', '#a685ff', '#ff5287'] as const;
 
-type Props = { ovens: Oven[]; language: GameLanguage; onComplete(): void; reducedMotion?: boolean };
+type Props = { ovens: Oven[]; language: GameLanguage; onComplete(): void; reducedMotion?: boolean; haptics?: boolean };
 
-export const DrawSequence = memo(function DrawSequence({ ovens, language, onComplete, reducedMotion }: Props) {
+export const DrawSequence = memo(function DrawSequence({ ovens, language, onComplete, reducedMotion, haptics = false }: Props) {
   const systemReduced = useReducedMotion();
   const reduced = reducedMotion ?? systemReduced;
   const steps = useMemo(() => buildDrawSequence(ovens), [ovens]);
@@ -25,12 +27,18 @@ export const DrawSequence = memo(function DrawSequence({ ovens, language, onComp
   const advance = useCallback(() => setIndex(current => current === index ? current + 1 : current), [index]);
   const step = steps[index];
   useEffect(() => {
+    if (haptics && step?.kind === 'secret') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => undefined);
+    }
+  }, [haptics, step]);
+  useEffect(() => {
     if (step || finished.current) return;
     finished.current = true;
     onComplete();
   }, [step, onComplete]);
   return (
     <Modal visible transparent={false} animationType="none" onRequestClose={() => {}} statusBarTranslucent navigationBarTranslucent>
+      <StatusBar hidden />
       <View style={s.space} testID="draw-sequence">
         <LinearGradient colors={step?.kind === 'secret' ? ['#010104', '#09091a', '#010104'] : ['#0a1027', '#23143d', '#090d24']} style={StyleSheet.absoluteFill} />
         <View style={StyleSheet.absoluteFill} pointerEvents="none">

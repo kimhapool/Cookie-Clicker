@@ -22,6 +22,8 @@ type MissionProgress = {
   chocoChips: number;
   totalDraws: number;
   upgrades: Record<string, number>;
+  buildingUpgrades?: Record<string, number>;
+  ovens?: { upgradeLevel?: number }[];
   rebirths: number;
   totalCookies: number;
 };
@@ -33,7 +35,9 @@ export function getMissionProgress(id: MissionId, state: MissionProgress): numbe
     case "building": return Object.values(state.buildings).reduce((a, b) => a + b, 0);
     case "chip": return state.chocoChips;
     case "draw": return state.totalDraws;
-    case "upgrade": return Object.values(state.upgrades).reduce((a, b) => a + b, 0);
+    case "upgrade": return Object.values(state.upgrades).reduce((a, b) => a + b, 0)
+      + Object.values(state.buildingUpgrades ?? {}).reduce((a, b) => a + b, 0)
+      + (state.ovens ?? []).reduce((sum, oven) => sum + (oven.upgradeLevel ?? 0), 0);
     case "rebirth": return state.rebirths;
     case "lifetime": return state.totalCookies;
   }

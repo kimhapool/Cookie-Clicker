@@ -5,8 +5,9 @@ import {
   StyleSheet,
   Text,
   View,
+  ActivityIndicator,
 } from "react-native";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
 import { BUILDINGS, buildingMultiplier, buildingUpgradeCost } from "../data/buildings";
@@ -14,7 +15,7 @@ import { UPGRADES } from "../data/upgrades";
 import { STANDARD_ACHIEVEMENTS, SECRET_ACHIEVEMENTS } from "../data/achievements";
 import { OVENS, RARITY_COLORS, type Rarity, type Oven } from "../data/ovens";
 import { getDrawPool } from "../data/drawOdds";
-import { getCps, getOvenUpgradeCost, useGameStore } from "../store/useGameStore";
+import { getCps, getOvenMultipliers, getOvenUpgradeCost, useGameStore } from "../store/useGameStore";
 import { coreNames, automationText, buildingDisplayName, inventoryText, labels, ovenDisplayName, pageText, progressText, traitNames, upgradeDisplay } from "../i18n/translations";
 
 import { TraitDraw } from "./TraitDraw";
@@ -22,7 +23,6 @@ import { DrawSequence } from "./DrawSequence";
 import { BuildingStack } from "./AutomationVista";
 import { buildingProduction } from "../utils/production";
 
-const fmt = (value: number) => Math.floor(value).toLocaleString("ko-KR");
 const ovenChance = (
   rarity: Rarity,
   premium: boolean,
@@ -43,7 +43,7 @@ function Button({
   disabled?: boolean;
 }) {
   return (
-    <Pressable
+    <Pressable accessibilityRole="button" accessibilityState={{ disabled }}
       disabled={disabled}
       onPress={onPress}
       style={[s.button, disabled && s.disabled]}
@@ -60,9 +60,10 @@ function Page({
   title: string;
   children: React.ReactNode;
 }) {
+  const language = useGameStore(state => state.settings.language);
   return (
-    <ScrollView contentContainerStyle={s.page}>
-      <Text style={s.title}>{title}</Text>
+    <ScrollView contentContainerStyle={[s.page, { direction: language === "ar" ? "rtl" : "ltr" }]}>
+      <Text accessibilityRole="header" style={s.title}>{title}</Text>
       {children}
     </ScrollView>
   );
@@ -72,32 +73,51 @@ export function DrawPage({ initialOdds = false }: { initialOdds?: boolean }) {
   const insets = useSafeAreaInsets();
   const modalInsets = { paddingTop: Math.max(16, insets.top), paddingBottom: Math.max(16, insets.bottom) };
   const game = useGameStore();
+  const fmt = (value: number) => Math.floor(value).toLocaleString(game.settings.language);
   const language = game.settings.language ?? "ko";
   const copy = pageText[language];
   const [mode, setMode] = useState<"basic" | "premium" | "trait">("basic");
   const [results, setResults] = useState<string[]>([]);
   const [sequence, setSequence] = useState<Oven[]>([]);
   const [showOdds, setShowOdds] = useState(initialOdds);
+  const [preparing, setPreparing] = useState<{ done: number; total: number } | null>(null);
+  const [drawError, setDrawError] = useState(false);
+  const drawLock = useRef(false);
+  const mounted = useRef(true);
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
+  const closeResults = () => { setResults([]); drawLock.current = false; };
   const finishSequence = useCallback(() => {
     setResults(sequence.map(oven => oven.id));
     setSequence([]);
   }, [sequence]);
-  const draw = (premium = false, count = 1) => {
-    if (sequence.length || results.length) return;
-    const drawnIds: string[] = [];
-    for (let i = 0; i < count; i += 1) {
-      const drawn = game.draw(premium);
-      if (!drawn) break;
-      drawnIds.push(drawn.id);
+  const draw = async (premium = false, count = 1) => {
+    if (drawLock.current || !Number.isSafeInteger(count) || count <= 0) return;
+    drawLock.current = true;
+    setDrawError(false);
+    const drawn: Oven[] = [];
+    setPreparing({ done: 0, total: count });
+    try {
+      // Yield between bounded transactions so "Draw all" does not freeze the UI
+      // or serialize the entire save once for every individual oven.
+      while (drawn.length < count && mounted.current) {
+        const batch = useGameStore.getState().drawMany(premium, Math.min(200, count - drawn.length));
+        if (!batch.length) break;
+        drawn.push(...batch);
+        setPreparing({ done: drawn.length, total: count });
+        if (drawn.length < count) await new Promise(resolve => setTimeout(resolve, 0));
+      }
+    } catch {
+      if (mounted.current) setDrawError(true);
     }
-    if (drawnIds.length) {
-      setResults([]);
-      setSequence(drawnIds.map(id => OVENS.find(oven => oven.id === id)!));
+    if (!mounted.current) return;
+    setPreparing(null);
+    if (drawn.length) {
+      setSequence(drawn);
       if (game.settings.vibration)
         Haptics.notificationAsync(
           Haptics.NotificationFeedbackType.Success,
         ).catch(() => undefined);
-    }
+    } else drawLock.current = false;
   };
   const grouped = results.reduce<Record<string, number>>(
     (acc, id) => ({ ...acc, [id]: (acc[id] ?? 0) + 1 }),
@@ -125,7 +145,7 @@ export function DrawPage({ initialOdds = false }: { initialOdds?: boolean }) {
           ["premium", "💎", copy.premium],
           ["trait", "✨", copy.trait],
         ].map(([id, emoji, label]) => (
-          <Pressable
+          <Pressable accessibilityRole="tab" accessibilityState={{ selected: mode === id }} aria-selected={mode === id}
             key={id}
             onPress={() => setMode(id as "basic" | "premium" | "trait")}
             style={[s.modeTab, mode === id && s.modeTabActive]}
@@ -137,6 +157,7 @@ export function DrawPage({ initialOdds = false }: { initialOdds?: boolean }) {
           </Pressable>
         ))}
       </View>
+      {drawError && <Text accessibilityRole="alert" style={s.info}>{copy.drawFailed}</Text>}
       {mode !== "trait" ? (
         <>
           <View style={[s.drawShowcase, mode === "premium" && s.drawShowcasePremium]}>
@@ -145,11 +166,7 @@ export function DrawPage({ initialOdds = false }: { initialOdds?: boolean }) {
             <Text style={s.drawTitle}>
               {mode === "basic" ? copy.chipDraw : copy.premiumOvenDraw}
             </Text>
-            <Text style={s.drawSub}>
-              {game.nextDrawBoost === "none"
-                ? copy.collectionHint
-                : copy.boostHint}
-            </Text>
+            {game.nextDrawBoost !== "none" && <Text style={s.drawSub}>{copy.boostHint}</Text>}
           </View>
           <View style={s.row}>
             <Button
@@ -202,9 +219,9 @@ export function DrawPage({ initialOdds = false }: { initialOdds?: boolean }) {
         transparent
         animationType="fade"
         visible={results.length > 0}
-        onRequestClose={() => setResults([])}
+        onRequestClose={closeResults}
       >
-        <View style={[s.resultShade, modalInsets, hasSecret && s.secretShade]}>
+        <View style={[s.resultShade, { direction: language === "ar" ? "rtl" : "ltr" }, modalInsets, hasSecret && s.secretShade]}>
           <View style={[s.resultCard, hasSecret && s.secretCard]}>
             <Text style={s.resultSparkle}>✦ ✦ ✦</Text>
             <Text style={[s.resultTitle, hasSecret && { color: "#fff8e9" }]}>{results.length} {copy.drawResult}</Text>
@@ -224,18 +241,25 @@ export function DrawPage({ initialOdds = false }: { initialOdds?: boolean }) {
               );
             })}
             </ScrollView>
-            <Button title={copy.confirm} onPress={() => setResults([])} />
+            <Button title={copy.confirm} onPress={closeResults} />
           </View>
         </View>
       </Modal>
-      {sequence.length > 0 && <DrawSequence ovens={sequence} language={language} onComplete={finishSequence} />}
+      {sequence.length > 0 && <DrawSequence ovens={sequence} language={language} haptics={game.settings.vibration} onComplete={finishSequence} />}
+      <Modal visible={!!preparing} transparent animationType="none" onRequestClose={() => {}}>
+        <View style={[s.resultShade, { direction: language === "ar" ? "rtl" : "ltr" }, modalInsets]}><View style={s.resultCard}>
+          <ActivityIndicator size="large" color="#80562b" />
+          <Text accessibilityLiveRegion="polite" style={s.resultTitle}>{copy.drawPreparing}</Text>
+          <Text style={s.info}>{preparing?.done.toLocaleString(language)} / {preparing?.total.toLocaleString(language)}</Text>
+        </View></View>
+      </Modal>
       <Modal
         transparent
         animationType="slide"
         visible={showOdds}
         onRequestClose={() => setShowOdds(false)}
       >
-        <View style={[s.resultShade, modalInsets]}>
+        <View style={[s.resultShade, { direction: language === "ar" ? "rtl" : "ltr" }, modalInsets]}>
           <View style={s.oddsCard}>
             <Text style={s.resultTitle}>
               {mode === "premium" ? copy.premiumOdds : copy.basicOdds}
@@ -246,7 +270,7 @@ export function DrawPage({ initialOdds = false }: { initialOdds?: boolean }) {
                 <Text style={[s.ovenName, { flex: 1, minWidth: 0 }]}>{ovenDisplayName(oven.id, oven.name, language)}</Text>
                 <Text style={[s.rarity, { color: RARITY_COLORS[oven.rarity] }]}>
                   {oven.rarity === "Secret"
-                    ? "???"
+                    ? "Secret · ???"
                     : `${oven.rarity} · ${ovenChance(oven.rarity, mode === "premium", game.drawLevel, game.nextDrawBoost)}`}
                 </Text>
               </View>
@@ -262,6 +286,7 @@ export function DrawPage({ initialOdds = false }: { initialOdds?: boolean }) {
 
 export function AutomationPage() {
   const game = useGameStore();
+  const fmt = (value: number) => Math.floor(value).toLocaleString(game.settings.language);
   const language = game.settings.language ?? "ko";
   const copy = pageText[language];
   const words = automationText[language];
@@ -311,6 +336,7 @@ export function AutomationPage() {
 
 export function ExchangePage() {
   const game = useGameStore();
+  const fmt = (value: number) => Math.floor(value).toLocaleString(game.settings.language);
   const copy = pageText[game.settings.language ?? "ko"];
   const words = progressText[game.settings.language ?? "ko"];
   return (
@@ -364,9 +390,12 @@ export function ExchangePage() {
 
 export function InventoryPage() {
   const game = useGameStore();
+  const fmt = (value: number) => Math.floor(value).toLocaleString(game.settings.language);
   const language = game.settings.language ?? "ko";
   const copy = pageText[language];
   const words = inventoryText[language];
+  const equipped = game.ovens.find(owned => owned.ovenId === game.equippedOvenId);
+  const equippedOven = OVENS.find(oven => oven.id === game.equippedOvenId);
   const [descending, setDescending] = useState(false);
   const rarityRank = (id: string) =>
     Object.keys(RARITY_COLORS).indexOf(
@@ -387,6 +416,11 @@ export function InventoryPage() {
           {game.epirus.twilight} · {words.phoenix} {game.epirus.phoenix} · {words.infinity}{" "}
           {game.epirus.infinity}
         </Text>
+        {equipped && equippedOven && <View testID="equipped-oven-summary" style={{ marginTop: 14, gap: 6 }}>
+          <Text style={s.ovenName}>{words.equipped} · {ovenDisplayName(equippedOven.id, equippedOven.name, language)}</Text>
+          <Text style={s.info}>{equippedOven.rarity} · Lv.{equipped.upgradeLevel ?? 0} · {traitNames[language][equipped.trait]}</Text>
+          <Text style={s.balance}>🍪 ×{getOvenMultipliers(equipped).click.toFixed(2)} · CPS ×{getOvenMultipliers(equipped).cps.toFixed(2)}</Text>
+        </View>}
       </View>
       <View style={s.row}>
         <Text style={s.section}>{words.collection}</Text>
@@ -416,8 +450,8 @@ export function InventoryPage() {
                 {ovenDisplayName(oven.id, oven.name, language)}
               </Text>
               <Text style={s.info}>
-                Lv.{owned.upgradeLevel ?? 0} · 🍪 ×{(oven.click * 1.1 ** (owned.upgradeLevel ?? 0)).toFixed(2)}
-                {" · "}CPS ×{(oven.cps * 1.1 ** (owned.upgradeLevel ?? 0)).toFixed(2)}
+                Lv.{owned.upgradeLevel ?? 0} · 🍪 ×{getOvenMultipliers(owned).click.toFixed(2)}
+                {" · "}CPS ×{getOvenMultipliers(owned).cps.toFixed(2)}
               </Text>
               <Text style={s.info}>💠 {coreNames[language][owned.core]}</Text>
               <Button
@@ -451,6 +485,7 @@ export function InventoryPage() {
 
 export function UpgradesPage() {
   const game = useGameStore();
+  const fmt = (value: number) => Math.floor(value).toLocaleString(game.settings.language);
   const language = game.settings.language ?? "ko";
   const copy = pageText[language];
   const words = progressText[language];
@@ -499,6 +534,7 @@ export function UpgradesPage() {
 
 export function AchievementsPage() {
   const game = useGameStore();
+  const fmt = (value: number) => Math.floor(value).toLocaleString(game.settings.language);
   const words = progressText[game.settings.language ?? "ko"];
   const entries = STANDARD_ACHIEVEMENTS.map((id, i) => [
     words.achievements[i][0], game.achievements.includes(id), words.achievements[i][1],

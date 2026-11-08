@@ -1,7 +1,9 @@
+import { s0 } from "./App.styles";
 import { StatusBar } from "expo-status-bar";
 import * as Haptics from "expo-haptics";
-import { useAudioPlayer } from "expo-audio";
-import { TapCookie } from "./src/components/TapCookie";
+import { setAudioModeAsync, useAudioPlayer } from "expo-audio";
+import { SettingsModal } from "./src/components/SettingsModal";
+import { HomePage } from "./src/components/HomePage";
 import {
   Animated,
   AppState,
@@ -10,22 +12,20 @@ import {
   Pressable,
   Platform,
   ActivityIndicator,
+  StatusBar as NativeStatusBar,
   ScrollView,
-  StyleSheet,
   Text,
-  Switch,
   View,
   useWindowDimensions,
 } from "react-native";
 import { useEffect, useRef, useState } from "react";
 import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
-import { getClickGain, getCps, isTutorialReady, loadGame, useGameStore } from "./src/store/useGameStore";
+import { getCps, isTutorialReady, loadGame, useGameStore } from "./src/store/useGameStore";
 import { OVENS } from "./src/data/ovens";
-import { AutomationVista } from "./src/components/AutomationVista";
 import { allocateProduction, type ProductionEvent } from "./src/utils/production";
 import { MISSIONS, getMissionProgress } from "./src/data/missions";
 import { STANDARD_ACHIEVEMENTS, SECRET_ACHIEVEMENTS } from "./src/data/achievements";
-import { accountText, homeText, labels, mailDisplay, missionDisplay, modalText, ovenDisplayName, pageText, progressText } from "./src/i18n/translations";
+import { accountText, labels, mailDisplay, missionDisplay, modalText, ovenDisplayName, pageText, progressText } from "./src/i18n/translations";
 import { compactNumber, productionNumber } from "./src/utils/numbers";
 import {
   AchievementsPage,
@@ -36,53 +36,6 @@ import {
   UpgradesPage,
 } from "./src/components/GamePages";
 
-const WINE = "#dbc3a0",
-  PAPER = "#f8eed7",
-  BOARD = "#e7f4ff",
-  GOLD = "#ffca45",
-  INK = "#3b1620";
-function Stat({
-  a,
-  b,
-  compact = false,
-  tight = false,
-}: {
-  a: string;
-  b: string;
-  compact?: boolean;
-  tight?: boolean;
-}) {
-  return (
-    <View style={[s0.stat, compact && s0.statCompact, tight && s0.statTight]}>
-      <Text style={[s0.statA, compact && s0.statLabelCompact]}>{a}</Text>
-      <Text style={[s0.statB, compact && s0.statValueCompact]}>{b}</Text>
-    </View>
-  );
-}
-function Side({
-  e,
-  t,
-  onPress,
-  compact = false,
-  disabled = false,
-}: {
-  e: string;
-  t: string;
-  onPress?: () => void;
-  compact?: boolean;
-  disabled?: boolean;
-}) {
-  return (
-    <Pressable
-      disabled={disabled}
-      onPress={onPress}
-      style={[s0.side, compact && s0.sideShort, disabled && s0.sideLocked]}
-    >
-      <Text style={s0.sideE}>{e}</Text>
-      <Text style={s0.sideT}>{t}</Text>
-    </Pressable>
-  );
-}
 export default function App() {
   if (__DEV__ && Platform.OS === 'web' && typeof window !== 'undefined'
     && new URLSearchParams(window.location.search).get('preview') === 'draw') {
@@ -117,8 +70,8 @@ function RestoreGame() {
         <SafeAreaView style={[s0.safe, s0.loading]}>
           {failed ? <>
             <Text style={s0.settingLabel}>저장 데이터를 불러오지 못했습니다.</Text>
-            <Text style={s0.mailSub}>기존 기록은 유지됩니다. 다시 시도해 주세요.</Text>
-            <Pressable onPress={() => setRetry(value => value + 1)} style={s0.closeButton}>
+            <Text style={s0.mailSub}>기존 기록은 유지됩니다. 다시 불러올 수 있습니다.</Text>
+            <Pressable accessibilityRole="button" onPress={() => setRetry(value => value + 1)} style={s0.closeButton}>
               <Text style={s0.closeText}>다시 불러오기</Text>
             </Pressable>
           </> : <ActivityIndicator size="large" color="#850019" />}
@@ -137,7 +90,6 @@ function GameApp() {
   const [profileOpen, setProfileOpen] = useState(false);
   const [rebirthOpen, setRebirthOpen] = useState(false);
   const [panel, setPanel] = useState<"mail" | "missions" | null>(null);
-  const [resetStage, setResetStage] = useState(0);
   const [achievementToast, setAchievementToast] = useState<string | null>(null);
   const [productionEvent, setProductionEvent] = useState<ProductionEvent | null>(null);
   const [clock, setClock] = useState(Date.now());
@@ -149,16 +101,8 @@ function GameApp() {
   const short = height < 820;
   const game = useGameStore();
   const text = labels[game.settings.language ?? "ko"];
-  const home = homeText[game.settings.language ?? "ko"];
   const modal = modalText[game.settings.language ?? "ko"];
   const account = accountText[game.settings.language ?? "ko"];
-  const [playSize, setPlaySize] = useState({ width: 300, height: 220 });
-  const leftWidth = phone ? 56 : 72;
-  const rightWidth = phone ? 72 : 100;
-  const cookieSize = Math.max(64, Math.min(320,
-    playSize.width - leftWidth - rightWidth - 34,
-    playSize.height - 74,
-  ));
   const popPlayer = useAudioPlayer(require("./assets/audio/5D.wav"));
   const drumPlayer = useAudioPlayer(require("./assets/audio/MV.wav"));
   const bitePlayer = useAudioPlayer(require("./assets/audio/om.wav"));
@@ -178,6 +122,11 @@ function GameApp() {
     if (game.tutorialStep === 2) return index === 1 || index === 3;
     return game.tutorialStep >= 3;
   };
+  useEffect(() => {
+    // Game audio respects the device's silent setting and stays in the foreground.
+    void setAudioModeAsync({ playsInSilentMode: false, shouldPlayInBackground: false,
+      allowsRecording: false, interruptionMode: 'mixWithOthers' }).catch(() => undefined);
+  }, []);
   useEffect(() => {
     const timer = setInterval(() => setClock(Date.now()), 1000);
     return () => clearInterval(timer);
@@ -294,10 +243,14 @@ function GameApp() {
     ? compactTabLabels[game.settings.language ?? "ko"].map((label, index) => `${tabIcons[index]}\n${label}`)
     : fullTabs;
   return (
-    <SafeAreaView style={s0.safe}>
-      <StatusBar style="dark" />
+    <SafeAreaView style={[s0.safe, { direction: game.settings.language === "ar" ? "rtl" : "ltr" }]}>
+      {Platform.OS === 'android' && Number(Platform.Version) < 35
+        ? <NativeStatusBar barStyle="dark-content" backgroundColor="#f8eed7" translucent={false} />
+        : <StatusBar style="dark" />}
       <View style={[s0.head, short && s0.headShort, phone && s0.headPhone]}>
-        <Pressable
+        <Pressable accessibilityRole="button"
+          accessibilityLabel={modal.profile}
+          testID="profile-button"
           onPress={() => setProfileOpen(true)}
           style={[s0.avatar, phone && s0.avatarPhone]}
         >
@@ -325,11 +278,12 @@ function GameApp() {
           </Text>
         </View>
         </View>
-        <Pressable
+        <Pressable accessibilityRole="button"
           onPress={() => {
-            setResetStage(0);
             setSettingsOpen(true);
           }}
+          accessibilityLabel={modal.settings}
+          testID="settings-button"
           style={[s0.setting, phone && s0.settingPhone]}
         >
           <Text>⚙️</Text>
@@ -343,7 +297,7 @@ function GameApp() {
               {modal.tutorialSteps[Math.min(game.tutorialStep, 4)]}
             </Text>
           </ScrollView>
-          <Pressable disabled={!tutorialReady} onPress={() => game.advanceTutorial()}
+          <Pressable accessibilityRole="button" disabled={!tutorialReady} onPress={() => game.advanceTutorial()}
             style={[s0.tutorialNext, !tutorialReady && s0.claimDisabled]}>
             <Text style={s0.closeText}>
               {tutorialReady ? (game.tutorialStep >= 4 ? modal.complete : modal.next)
@@ -353,158 +307,9 @@ function GameApp() {
           </Pressable>
         </View>
       )}
-      <ScrollView style={[s0.homeScroll, tab !== 0 && s0.hidden]}
-        contentContainerStyle={[s0.body, phone && s0.bodyPhone, short && s0.bodyShort]}>
-        {game.pendingOffline > 0 && <View style={[s0.off, short && s0.offShort]}>
-          <View style={s0.rowCopy}>
-            <Text style={s0.offTitle}>{text.offline}</Text>
-            <Text style={s0.offSub}>
-              {game.pendingOffline
-                ? `${Math.floor(game.offlineSeconds / 60)}${account.minutes} ${game.offlineSeconds % 60}${account.seconds} · +${game.pendingOffline.toLocaleString("ko-KR")}`
-                : modal.offlineWaiting}
-            </Text>
-          </View>
-          <Pressable
-            disabled={!game.pendingOffline}
-            onPress={() => {
-              const reward = game.claimOffline();
-              if (reward && game.settings.vibration)
-                Haptics.notificationAsync(
-                  Haptics.NotificationFeedbackType.Success,
-                ).catch(() => undefined);
-            }}
-            style={[s0.claim, !game.pendingOffline && s0.claimDisabled]}
-          >
-            <Text style={s0.claimT}>{text.claim}</Text>
-          </Pressable>
-        </View>}
-        <View style={[s0.board, short && s0.boardShort]}>
-          <View style={s0.statRow}>
-            <Stat a={home.click} b={`+${getClickGain(game)}`} />
-            <Stat a={home.rebirth} b={`x${Math.pow(1.5, game.rebirths).toFixed(2)}`} />
-          </View>
-          <View style={[s0.boostRow, short && s0.boostRowShort]}>
-            <Pressable
-              disabled={game.boostUntil > Date.now() || game.cookies < 5000}
-              onPress={() => game.activateBoost(2)}
-              style={[
-                s0.boostCard,
-                game.boostUntil > Date.now() && s0.claimDisabled,
-              ]}
-              >
-                <Text style={s0.boostTitle}>🔥 {home.doublePotion}</Text>
-              <View style={s0.boostMeta}>
-                <Text style={s0.boostSub}>
-                  {game.boostUntil > clock && game.boostMultiplier === 2
-                    ? `${home.active} · ${Math.ceil((game.boostUntil - clock) / 1000)}${home.seconds}`
-                    : home.doubleCost}
-                </Text>
-                <View style={s0.boostUse}><Text style={s0.boostUseText}>{game.boostUntil > clock && game.boostMultiplier === 2 ? "✓" : home.use}</Text></View>
-              </View>
-            </Pressable>
-            <Pressable
-              disabled={game.boostUntil > Date.now() || game.cookies < 25000}
-              onPress={() => game.activateBoost(4)}
-              style={[
-                s0.boostCard,
-                s0.feverCard,
-                game.boostUntil > Date.now() && s0.claimDisabled,
-              ]}
-              >
-                <Text style={s0.boostTitle}>🌈 {home.feverTime}</Text>
-              <View style={s0.boostMeta}>
-                <Text style={s0.boostSub}>
-                  {game.boostUntil > clock && game.boostMultiplier === 4
-                    ? `${home.active} · ${Math.ceil((game.boostUntil - clock) / 1000)}${home.seconds}`
-                    : home.feverCost}
-                </Text>
-                <View style={s0.boostUse}><Text style={s0.boostUseText}>{game.boostUntil > clock && game.boostMultiplier === 4 ? "✓" : home.use}</Text></View>
-              </View>
-            </Pressable>
-          </View>
-          <View style={[s0.play, { minHeight: Math.max(232, Math.min(320, width - leftWidth - rightWidth - 72, height * 0.29) + 74) }]} onLayout={({ nativeEvent }) => {
-            const { width: w, height: h } = nativeEvent.layout;
-            setPlaySize((prev) => prev.width === w && prev.height === h ? prev : { width: w, height: h });
-          }}>
-            <View style={[s0.left, short && s0.leftShort, { width: leftWidth }]}>
-              <Side
-                e="📬"
-                t={home.mail}
-                compact={short}
-                disabled={!game.tutorialComplete && game.tutorialStep < 3}
-                onPress={() => setPanel("mail")}
-              />
-              <Side
-                e="📋"
-                t={home.missions}
-                compact={short}
-                disabled={!game.tutorialComplete}
-                onPress={() => setPanel("missions")}
-              />
-              <Pressable
-                disabled={!game.tutorialComplete}
-                onPress={() => setRebirthOpen(true)}
-                style={[s0.side, short && s0.sideShort, !game.tutorialComplete && s0.sideLocked]}
-              >
-                <Text style={s0.sideE}>😇</Text>
-                <Text style={s0.sideT}>{home.rebirth}</Text>
-              </Pressable>
-              <Pressable
-                disabled={!canOpenTab(1)}
-                onPress={() => { setHomeOdds(true); setTab(1); }}
-                style={[s0.side, short && s0.sideShort, !canOpenTab(1) && s0.sideLocked]}
-              >
-                <Text style={s0.sideE}>🎲</Text>
-                <Text style={s0.sideT}>{home.odds}</Text>
-              </Pressable>
-            </View>
-            <View style={s0.cookieZone}>
-              <TapCookie size={cookieSize} rebirths={game.rebirths} language={game.settings.language}
-                boost={game.boostUntil > clock ? game.boostMultiplier : 1} onTap={tapCookie} />
-              <Text style={s0.tap}>{text.tapCookie}</Text>
-            </View>
-            <View style={[s0.right, short && s0.rightShort, { width: rightWidth }]}>
-              <Stat
-                compact
-                tight={short}
-                a={pageText[game.settings.language].drawLevel}
-                b={`Lv.${game.drawLevel}`}
-              />
-              <Stat
-                compact
-                tight={short}
-                a={pageText[game.settings.language].nextBoost}
-                b={game.nextDrawBoost === "none" ? pageText[game.settings.language].none
-                  : game.nextDrawBoost === "diary" ? "×50" : "×15"}
-              />
-              <Stat
-                compact
-                tight={short}
-                a={home.buff}
-                b={
-                  game.boostUntil > clock
-                    ? `×${game.boostMultiplier} ${Math.ceil((game.boostUntil - clock) / 1000)}${home.seconds}`
-                    : home.waiting
-                }
-              />
-            </View>
-          </View>
-          <AutomationVista counts={game.buildings} upgrades={game.buildingUpgrades} totalCps={cps} event={productionEvent}
-            language={game.settings.language} active={tab === 0} />
-          <Pressable
-            disabled={!canOpenTab(1)}
-            onPress={() => { setHomeOdds(false); setTab(1); }}
-            style={[s0.promo, short && s0.promoShort, !canOpenTab(1) && s0.claimDisabled]}
-          >
-            <Text style={s0.promoE}>🎁</Text>
-            <View>
-              <Text style={s0.promoT}>{text.todayOven}</Text>
-              <Text style={s0.promoS}>{home.todayOvenSub}</Text>
-            </View>
-            <Text style={s0.arrow}>›</Text>
-          </Pressable>
-        </View>
-      </ScrollView>
+      <HomePage active={tab === 0} clock={clock} productionEvent={productionEvent} canDraw={canOpenTab(1)}
+        onTap={tapCookie} onPanel={setPanel} onRebirth={() => setRebirthOpen(true)}
+        onDraw={odds => { setHomeOdds(odds); setTab(1); }} />
       {tab === 1 && <DrawPage initialOdds={homeOdds} />}
       {tab === 2 && <InventoryPage />}
       {tab === 3 && <AutomationPage />}
@@ -513,8 +318,12 @@ function GameApp() {
       {tab === 6 && <AchievementsPage />}
       <View style={[s0.dock, phone && s0.dockPhone, short && s0.dockShort]}>
         {tabs.map((t, i) => (
-          <Pressable
+          <Pressable accessibilityRole="button"
             key={t}
+            accessibilityLabel={fullTabs[i].replace("\n", " ")}
+            accessibilityState={{ selected: tab === i, disabled: !canOpenTab(i) }}
+            aria-current={tab === i ? 'page' : undefined}
+            testID={`navigation-${i}`}
             disabled={!canOpenTab(i)}
             onPress={() => { setHomeOdds(false); setTab(i); }}
             style={[
@@ -545,7 +354,7 @@ function GameApp() {
         visible={!!panel}
         onRequestClose={() => setPanel(null)}
       >
-        <View style={[s0.modalShade, modalInsets]}>
+        <View style={[s0.modalShade, modalInsets, { direction: game.settings.language === "ar" ? "rtl" : "ltr" }]}>
           <View style={[s0.modalCard, s0.panelCard]}>
             <Text style={s0.modalTitle}>
               {panel === "mail" ? `📬 ${modal.mailbox}` : `📋 ${modal.todayMissions}`}
@@ -568,7 +377,7 @@ function GameApp() {
                         <Text style={s0.mailTitle}>{mailCopy.title}</Text>
                         <Text style={s0.mailSub}>{mailCopy.reward}</Text>
                       </View>
-                      <Pressable
+                      <Pressable accessibilityRole="button"
                         disabled={claimed || unavailable}
                         onPress={() => {
                           if (game.claimMail(id) && game.settings.vibration)
@@ -621,7 +430,7 @@ function GameApp() {
                           />
                         </View>
                       </View>
-                      <Pressable
+                      <Pressable accessibilityRole="button"
                         disabled={!done || claimed}
                         onPress={() => {
                           if (
@@ -645,195 +454,49 @@ function GameApp() {
                   );
                 })}
             </ScrollView>
-            <Pressable onPress={() => setPanel(null)} style={s0.closeButton}>
+            <Pressable accessibilityRole="button" onPress={() => setPanel(null)} style={s0.closeButton}>
               <Text style={s0.closeText}>{modal.close}</Text>
             </Pressable>
           </View>
         </View>
       </Modal>
-      <Modal
-        transparent
-        animationType="fade"
-        visible={settingsOpen}
-        onRequestClose={() => setSettingsOpen(false)}
-      >
-        <View style={[s0.modalShade, modalInsets]}>
-          <View style={[s0.modalCard, s0.panelCard]}>
-            <Text style={s0.modalTitle}>⚙️ {modal.settings}</Text>
-            <ScrollView style={s0.panelScroll} contentContainerStyle={s0.panelContent}>
-            <View style={s0.settingRow}>
-              <Text style={s0.settingLabel}>{modal.sound}</Text>
-              <Switch
-                value={game.settings.sound}
-                onValueChange={(sound) => game.updateSettings({ sound })}
-              />
-            </View>
-            <View style={s0.settingRow}>
-              <Text style={s0.settingLabel}>{modal.music}</Text>
-              <Switch
-                value={game.settings.music}
-                onValueChange={(music) => game.updateSettings({ music })}
-              />
-            </View>
-            <View style={s0.settingRow}>
-              <Text style={s0.settingLabel}>{modal.musicMood}</Text>
-              <Pressable
-                onPress={() =>
-                  game.updateSettings({
-                    musicStyle:
-                      game.settings.musicStyle === "exciting"
-                        ? "calm"
-                        : "exciting",
-                  })
-                }
-                style={s0.languageButton}
-              >
-                <Text style={s0.languageText}>
-                  {game.settings.musicStyle === "exciting"
-                    ? modal.exciting
-                    : modal.calm}
-                </Text>
-              </Pressable>
-            </View>
-            <View style={s0.settingRow}>
-              <Text style={s0.settingLabel}>{modal.vibration}</Text>
-              <Switch
-                value={game.settings.vibration}
-                onValueChange={(vibration) =>
-                  game.updateSettings({ vibration })
-                }
-              />
-            </View>
-            <View style={s0.settingRow}>
-              <Text style={s0.settingLabel}>{modal.tapSound}</Text>
-              <Pressable
-                onPress={() => {
-                  const sounds = ["pop", "drum", "bite", "crumble"] as const;
-                  game.updateSettings({
-                    tapSound:
-                      sounds[
-                        (sounds.indexOf(game.settings.tapSound) + 1) %
-                          sounds.length
-                      ],
-                  });
-                }}
-                style={s0.languageButton}
-              >
-                <Text style={s0.languageText}>
-                  {
-                    {
-                      pop: modal.tapPop,
-                      drum: modal.tapDrum,
-                      bite: modal.tapBite,
-                      crumble: modal.tapCrumble,
-                    }[game.settings.tapSound]
-                  }
-                </Text>
-              </Pressable>
-            </View>
-            <View style={s0.settingRow}>
-              <Text style={s0.settingLabel}>{modal.language}</Text>
-              <Pressable
-                onPress={() => {
-                  const order = [
-                    "ko",
-                    "en",
-                    "ja",
-                    "zh",
-                    "ar",
-                    "de",
-                    "ru",
-                  ] as const;
-                  game.updateSettings({
-                    language:
-                      order[
-                        (order.indexOf(game.settings.language) + 1) %
-                          order.length
-                      ],
-                  });
-                }}
-                style={s0.languageButton}
-              >
-                <Text style={s0.languageText}>
-                  {
-                    {
-                      ko: "한국어",
-                      en: "English",
-                      ja: "日本語",
-                      zh: "中文",
-                      ar: "العربية",
-                      de: "Deutsch",
-                      ru: "Русский",
-                    }[game.settings.language]
-                  }
-                </Text>
-              </Pressable>
-            </View>
-            {resetStage > 0 && (
-              <Text style={s0.resetWarning}>
-                {modal.resetPrompts[resetStage]}
-              </Text>
-            )}
-            <Pressable
-              onPress={() => {
-                if (resetStage >= 5) {
-                  game.resetGame();
-                  resetFlash.setValue(0);
-                  Animated.sequence([
-                    Animated.timing(resetFlash, { toValue: 0.92, duration: 120, useNativeDriver: true }),
-                    Animated.timing(resetFlash, { toValue: 0, duration: 520, useNativeDriver: true }),
-                  ]).start();
-                  setResetStage(0);
-                  setSettingsOpen(false);
-                } else setResetStage(resetStage + 1);
-              }}
-              style={s0.resetButton}
-            >
-              <Text style={s0.closeText}>
-                {resetStage >= 5 ? modal.resetDone : modal.reset}
-              </Text>
-            </Pressable>
-            </ScrollView>
-            <Pressable
-              onPress={() => {
-                setResetStage(0);
-                setSettingsOpen(false);
-              }}
-              style={s0.closeButton}
-            >
-              <Text style={s0.closeText}>{modal.close}</Text>
-            </Pressable>
-          </View>
-        </View>
-      </Modal>
-      <Animated.View pointerEvents="none" style={[s0.resetFlash, { opacity: resetFlash }]} />
+      <SettingsModal visible={settingsOpen} onClose={() => setSettingsOpen(false)} onReset={() => {
+        setSettingsOpen(false);
+        setTab(0);
+        resetFlash.setValue(0);
+        Animated.timing(resetFlash, { toValue: 0.92, duration: 120, useNativeDriver: true }).start(() => {
+          shownAchievements.current = new Set();
+          game.resetGame();
+          Animated.timing(resetFlash, { toValue: 0, duration: 520, useNativeDriver: true }).start();
+        });
+      }} />
       <Modal
         transparent
         animationType="fade"
         visible={profileOpen}
         onRequestClose={() => setProfileOpen(false)}
       >
-        <View style={[s0.modalShade, modalInsets]}>
+        <View style={[s0.modalShade, modalInsets, { direction: game.settings.language === "ar" ? "rtl" : "ltr" }]}>
           <View style={s0.modalCard}>
             <Text style={s0.modalTitle}>🍪 {modal.profile}</Text>
             <Text style={s0.settingLabel}>
-              {account.totalCookies} {game.totalCookies.toLocaleString("ko-KR")}
+              {account.totalCookies} {game.totalCookies.toLocaleString(game.settings.language)}
             </Text>
             <Text style={s0.settingLabel}>
-              {account.totalTaps} {game.taps.toLocaleString("ko-KR")}
+              {account.totalTaps} {game.taps.toLocaleString(game.settings.language)}
             </Text>
             <Text style={s0.settingLabel}>
-              {account.totalDraws} {game.totalDraws.toLocaleString("ko-KR")}
+              {account.totalDraws} {game.totalDraws.toLocaleString(game.settings.language)}
             </Text>
             <Text style={s0.settingLabel}>
-              {account.chips} {game.chocoChips.toLocaleString("ko-KR")} · {account.premiumChips} {game.premiumChips.toLocaleString("ko-KR")}
+              {account.chips} {game.chocoChips.toLocaleString(game.settings.language)} · {account.premiumChips} {game.premiumChips.toLocaleString(game.settings.language)}
             </Text>
             <Text style={s0.settingLabel}>{account.rebirths} {game.rebirths}</Text>
             <Text style={s0.settingLabel}>
               {modal.equippedOven}{" "}
               {(() => { const oven = OVENS.find((item) => item.id === game.equippedOvenId); return oven ? ovenDisplayName(oven.id, oven.name, game.settings.language ?? "ko") : modal.none; })()}
             </Text>
-            <Pressable
+            <Pressable accessibilityRole="button"
               onPress={() => setProfileOpen(false)}
               style={s0.closeButton}
             >
@@ -848,9 +511,9 @@ function GameApp() {
         visible={rebirthOpen}
         onRequestClose={() => setRebirthOpen(false)}
       >
-        <View style={[s0.modalShade, modalInsets]}>
+        <View style={[s0.modalShade, modalInsets, { direction: game.settings.language === "ar" ? "rtl" : "ltr" }]}>
           <View style={s0.modalCard}>
-            <Text style={s0.modalTitle}>😇 {home.rebirth}</Text>
+            <Text style={s0.modalTitle}>😇 {pageText[game.settings.language].rebirth}</Text>
             <Text style={s0.settingLabel}>{modal.currentRebirth} {game.rebirths}</Text>
             <Text style={s0.settingLabel}>
               {account.multiplier} x{Math.pow(1.5, game.rebirths).toFixed(2)} → {account.nextMultiplier} x
@@ -870,10 +533,10 @@ function GameApp() {
               />
             </View>
             <Text style={s0.mailSub}>
-              {game.cookies.toLocaleString("ko-KR")} /{" "}
-              {(100000 * Math.pow(5, game.rebirths)).toLocaleString("ko-KR")}
+              {game.cookies.toLocaleString(game.settings.language)} /{" "}
+              {(100000 * Math.pow(5, game.rebirths)).toLocaleString(game.settings.language)}
             </Text>
-            <Pressable
+            <Pressable accessibilityRole="button"
               disabled={game.cookies < 100000 * Math.pow(5, game.rebirths)}
               onPress={() => {
                 game.rebirth();
@@ -893,354 +556,3 @@ function GameApp() {
     </SafeAreaView>
   );
 }
-const s0 = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: PAPER },
-  loading: { justifyContent: "center", padding: 24 },
-  credit: { color: "#62412e", backgroundColor: WINE, textAlign: "center", fontSize: 10, paddingBottom: 4 },
-  resetFlash: { ...StyleSheet.absoluteFill, zIndex: 99, backgroundColor: "#fff9d8" },
-  head: {
-    height: 115,
-    backgroundColor: WINE,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 9,
-    paddingHorizontal: 12,
-    borderBottomWidth: 5,
-    borderColor: "#c79e6a",
-  },
-  headPhone: { height: 96, gap: 6, paddingHorizontal: 7 },
-  headShort: { height: 78 },
-  avatar: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
-    backgroundColor: "#fff7e7",
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 4,
-    borderColor: "#b77b38",
-  },
-  avatarPhone: { width: 44, height: 44, borderRadius: 22, overflow: "hidden" },
-  resources: { flex: 1, minWidth: 0, flexDirection: "row", gap: 8 },
-  resourcesPhone: { flexWrap: "wrap", gap: 4 },
-  res: {
-    height: 60,
-    minWidth: 95,
-    flex: 1,
-    borderRadius: 14,
-    backgroundColor: "#fff3d5",
-    borderWidth: 2,
-    borderColor: "#c79e6a",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  resPhone: { minWidth: 0, height: 34, borderRadius: 10, flexBasis: "46%", flexGrow: 1, flexShrink: 1 },
-  cps: { flex: 2.2 },
-  resT: { fontSize: 16, fontWeight: "900", color: INK },
-  resTPhone: { fontSize: 13 },
-  setting: {
-    width: 57,
-    height: 70,
-    borderRadius: 13,
-    backgroundColor: GOLD,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 2,
-    borderColor: "#b77b38",
-  },
-  settingPhone: { width: 44, height: 44, borderRadius: 11 },
-  homeScroll: { flex: 1 },
-  body: { flexGrow: 1, padding: 22, gap: 13 },
-  bodyPhone: { padding: 14, gap: 10 },
-  bodyShort: { padding: 10, gap: 7 },
-  hidden: { display: "none" },
-  coming: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: PAPER,
-  },
-  comingText: { fontSize: 18, fontWeight: "900", color: INK },
-  off: {
-    minHeight: 118,
-    borderRadius: 26,
-    backgroundColor: "#fff3d5",
-    borderWidth: 4,
-    borderColor: "#dba020",
-    paddingHorizontal: 28,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  offTitle: { fontSize: 20, fontWeight: "900", color: INK, marginBottom: 8 },
-  offShort: { minHeight: 88, paddingVertical: 12, paddingHorizontal: 16, borderWidth: 3, gap: 10 },
-  offSub: { fontSize: 15, fontWeight: "800", color: "#72564b" },
-  claim: {
-    width: 120,
-    height: 68,
-    borderRadius: 22,
-    backgroundColor: "#ffb900",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  claimDisabled: { opacity: 0.45 },
-  modalShade: {
-    flex: 1,
-    backgroundColor: "#00000077",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 24,
-  },
-  modalCard: {
-    width: "100%",
-    maxWidth: 440,
-    backgroundColor: "#fff8e9",
-    borderRadius: 28,
-    padding: 22,
-    gap: 12,
-    borderWidth: 3,
-    borderColor: "#d9bd85",
-  },
-  panelCard: { maxHeight: "100%", flexShrink: 1, padding: 16 },
-  panelScroll: { flexShrink: 1 },
-  panelContent: { gap: 12 },
-  rowCopy: { flex: 1, minWidth: 0 },
-  modalTitle: { fontSize: 25, fontWeight: "900", color: INK, marginBottom: 4 },
-  settingRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    minHeight: 46,
-  },
-  settingLabel: { fontSize: 17, fontWeight: "800", color: INK },
-  mailRow: {
-    minHeight: 62,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    backgroundColor: "#fffdf8",
-    borderRadius: 14,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: "#eadabb",
-    gap: 10,
-  },
-  mailTitle: { fontSize: 16, fontWeight: "900", color: INK },
-  mailSub: { fontSize: 13, fontWeight: "700", color: "#746359", marginTop: 3 },
-  mailButton: {
-    flexShrink: 0,
-    minHeight: 44,
-    justifyContent: "center",
-    backgroundColor: "#ffca45",
-    paddingHorizontal: 14,
-    paddingVertical: 9,
-    borderRadius: 12,
-  },
-  progressTrack: {
-    height: 12,
-    backgroundColor: "#ecdcb9",
-    borderRadius: 10,
-    overflow: "hidden",
-  },
-  progressFill: {
-    height: "100%",
-    backgroundColor: "#ffb900",
-    borderRadius: 10,
-  },
-  missionTrack: {
-    height: 6,
-    marginTop: 6,
-    backgroundColor: "#eadabb",
-    borderRadius: 8,
-    overflow: "hidden",
-  },
-  missionFill: { height: "100%", backgroundColor: "#77b5e8", borderRadius: 8 },
-  languageButton: {
-    backgroundColor: "#ffca45",
-    paddingHorizontal: 14,
-    paddingVertical: 9,
-    borderRadius: 12,
-  },
-  languageText: { color: INK, fontWeight: "900" },
-  closeButton: {
-    backgroundColor: "#850019",
-    paddingVertical: 14,
-    alignItems: "center",
-    borderRadius: 15,
-    marginTop: 8,
-  },
-  closeText: { color: "#fff8e9", fontSize: 16, fontWeight: "900" },
-  resetButton: {
-    backgroundColor: "#9e1634",
-    paddingVertical: 11,
-    alignItems: "center",
-    borderRadius: 15,
-  },
-  resetWarning: {
-    color: "#8a1832",
-    fontSize: 14,
-    fontWeight: "800",
-    lineHeight: 20,
-  },
-  tutorialCard: {
-    backgroundColor: "#fff8e9",
-    borderBottomWidth: 2,
-    borderColor: "#dba020",
-    padding: 10,
-    gap: 10,
-    flexDirection: "row",
-    alignItems: "center",
-    maxHeight: 124,
-  },
-  tutorialCopy: { flex: 1, maxHeight: 100 },
-  tutorialTitle: { color: INK, fontSize: 13, fontWeight: "900", marginBottom: 4 },
-  tutorialText: { color: INK, fontSize: 13, fontWeight: "700", lineHeight: 19 },
-  tutorialNext: { backgroundColor: "#850019", minHeight: 44, maxWidth: 100, padding: 10, borderRadius: 12 },
-  claimT: { fontSize: 20, fontWeight: "900", color: INK },
-  board: {
-    flexGrow: 1,
-    flexShrink: 0,
-    backgroundColor: BOARD,
-    borderWidth: 4,
-    borderColor: "#cbdcf1",
-    borderRadius: 44,
-    padding: 14,
-  },
-  boardShort: { borderRadius: 28, padding: 9 },
-  statRow: {
-    height: 72,
-    flexDirection: "row",
-    justifyContent: "center",
-    gap: 16,
-  },
-  stat: {
-    flex: 1,
-    maxWidth: 320,
-    minWidth: 82,
-    borderRadius: 25,
-    backgroundColor: "#fff",
-    borderWidth: 2,
-    borderColor: "#d7dce7",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  statA: { fontSize: 14, fontWeight: "800", color: "#566575", textAlign: "center" },
-  statB: { fontSize: 21, fontWeight: "900", color: "#27384f" },
-  statCompact: { flex: 0, minHeight: 54, minWidth: 0, borderRadius: 18, paddingVertical: 6 },
-  statTight: { minHeight: 48, borderRadius: 13 },
-  statLabelCompact: { fontSize: 11 },
-  statValueCompact: { fontSize: 16, textAlign: "center" },
-  work: {
-    height: 28,
-    textAlign: "center",
-    paddingTop: 10,
-    fontSize: 17,
-    fontWeight: "900",
-    color: INK,
-  },
-  boostRow: { flexDirection: "row", gap: 8, marginVertical: 5 },
-  boostRowShort: { marginVertical: 1 },
-  boostCard: {
-    flex: 1,
-    minHeight: 46,
-    borderRadius: 15,
-    backgroundColor: "#ffcc62",
-    padding: 8,
-    borderWidth: 2,
-    borderColor: "#d7881c",
-  },
-  feverCard: { backgroundColor: "#ef8fbd", borderColor: "#a541aa" },
-  boostTitle: { color: INK, fontWeight: "900", fontSize: 12 },
-  boostSub: { color: "#62412e", fontWeight: "800", fontSize: 10, marginTop: 2 },
-  boostMeta: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 2 },
-  boostUse: { marginLeft: "auto", minWidth: 32, paddingHorizontal: 7, paddingVertical: 3, borderRadius: 9, backgroundColor: "#fff8e9", alignItems: "center", borderWidth: 1, borderColor: "#b77925" },
-  boostUseText: { color: INK, fontSize: 10, fontWeight: "900" },
-  play: {
-    flex: 1,
-    minHeight: 232,
-    marginVertical: 10,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  left: { width: 66, gap: 6 },
-  leftShort: { gap: 3 },
-  right: { width: 100, gap: 6 },
-  rightShort: { gap: 3 },
-  side: {
-    height: 52,
-    borderRadius: 20,
-    backgroundColor: GOLD,
-    borderWidth: 3,
-    borderColor: "#9e1634",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  sideShort: { height: 48, borderRadius: 14, borderWidth: 2 },
-  sideLocked: { opacity: 0.35 },
-  sideE: { fontSize: 20 },
-  sideT: { fontSize: 12, fontWeight: "900", color: INK },
-  cookieZone: { flex: 1, alignItems: "center", justifyContent: "center" },
-  tap: { marginTop: 10, color: INK, fontWeight: "900", fontSize: 13, textAlign: "center" },
-  promo: {
-    height: 82,
-    borderRadius: 26,
-    backgroundColor: "#fff8ea",
-    borderWidth: 2,
-    borderColor: "#e2cfab",
-    paddingHorizontal: 18,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 15,
-  },
-  promoShort: { height: 64, borderRadius: 20 },
-  promoE: { fontSize: 29 },
-  promoT: { fontSize: 17, fontWeight: "900", color: INK },
-  promoS: { fontSize: 13, fontWeight: "700", color: "#746359" },
-  arrow: { marginLeft: "auto", fontSize: 38, color: "#a40c35" },
-  dock: {
-    height: 118,
-    backgroundColor: WINE,
-    borderTopWidth: 5,
-    borderColor: "#c79e6a",
-    padding: 11,
-    flexDirection: "row",
-    gap: 10,
-  },
-  dockPhone: { height: 80, padding: 6, gap: 3 },
-  dockShort: { height: 80, padding: 6, gap: 3 },
-  achievementToast: {
-    position: "absolute",
-    bottom: 126,
-    alignSelf: "center",
-    backgroundColor: "#401923",
-    paddingHorizontal: 18,
-    paddingVertical: 12,
-    borderRadius: 18,
-    borderWidth: 2,
-    borderColor: "#ffca45",
-    elevation: 20,
-  },
-  achievementText: { color: "#fff8e9", fontSize: 15, fontWeight: "900" },
-  tab: {
-    flex: 1,
-    borderRadius: 17,
-    backgroundColor: "#9c7047",
-    borderWidth: 2,
-    borderColor: "#755033",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  tabPhone: { borderRadius: 13 },
-  tabLocked: { opacity: 0.35 },
-  active: { backgroundColor: GOLD },
-  tabT: {
-    fontSize: 13,
-    lineHeight: 23,
-    textAlign: "center",
-    fontWeight: "900",
-    color: "white",
-  },
-  tabTPhone: { fontSize: 11, lineHeight: 19 },
-  activeT: { color: INK },
-});

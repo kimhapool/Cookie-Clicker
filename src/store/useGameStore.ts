@@ -70,6 +70,7 @@ type Game = {
   prepareDrawBoost(boost: DrawBoost): boolean;
   rebirth(): boolean;
   draw(premium?: boolean): Oven | null;
+  drawMany(premium: boolean, count: number): Oven[];
   equipOven(id: string): boolean;
   upgradeOven(id: string): boolean;
   fuseOven(id: string): boolean;
@@ -156,6 +157,11 @@ const traitMultiplier = (trait: Trait) =>
       : trait === "글리치"
         ? 1.7
         : 1;
+export const getOvenMultipliers = (owned: OwnedOven) => {
+  const oven = OVENS.find(item => item.id === owned.ovenId) ?? OVENS[0];
+  const multiplier = traitMultiplier(owned.trait) * 1.25 ** owned.fusion * 1.1 ** (owned.upgradeLevel ?? 0);
+  return { click: oven.click * multiplier, cps: oven.cps * multiplier };
+};
 const equippedTrait = (state: Pick<Game, "ovens" | "equippedOvenId">) =>
   state.ovens.find((oven) => oven.ovenId === state.equippedOvenId)?.trait ??
   "없음";
@@ -246,11 +252,6 @@ const buildingCost = (id: string, count: number) =>
     BUILDINGS.find((building) => building.id === id)!.baseCost *
       Math.pow(1.15, count),
   );
-const randomOven = (premium: boolean, boost: DrawBoost, level: number) => {
-  const pool = getDrawPool(premium, boost, level);
-  let roll = Math.random();
-  return pool.find((item) => (roll -= item.chance) <= 0)?.oven ?? OVENS[OVENS.length - 1];
-};
 const earnedEpirus = (oven: Oven): Partial<Record<Epirus, number>> => {
   if (oven.id === "oven-10") return { phoenix: 2 };
   if (oven.rarity === "Secret") return { infinity: 5 };
@@ -397,24 +398,39 @@ export const useGameStore = create<Game>()(
         });
         return true;
       },
-      draw: (premium = false) => {
+      draw: (premium = false) => get().drawMany(premium, 1)[0] ?? null,
+      drawMany: (premium, requested) => {
         const state = get();
-        if (premium ? state.premiumChips < 1 : state.chocoChips < 1)
-          return null;
-        const oven = randomOven(premium, state.nextDrawBoost, state.drawLevel);
-        const draws = state.totalDraws + 1;
+        if (!useGameStore.persist.hasHydrated() || !Number.isSafeInteger(requested) || requested <= 0) return [];
+        const available = premium ? state.premiumChips : state.chocoChips;
+        const count = Math.min(requested, Math.floor(available));
+        if (count <= 0) return [];
+        const drawn: Oven[] = [];
+        const copies: Record<string, number> = {};
+        let pool: ReturnType<typeof getDrawPool> = [];
+        let poolKey = '';
+        for (let index = 0; index < count; index++) {
+          const level = index === 0 ? state.drawLevel : 1 + Math.floor((state.drawXp + index) / 20);
+          const boost = index === 0 ? state.nextDrawBoost : 'none';
+          const key = `${level}:${boost}`;
+          if (key !== poolKey) { pool = getDrawPool(premium, boost, level); poolKey = key; }
+          let roll = Math.random();
+          const oven = pool.find(item => (roll -= item.chance) <= 0)?.oven ?? OVENS[OVENS.length - 1];
+          drawn.push(oven);
+          copies[oven.id] = (copies[oven.id] ?? 0) + 1;
+        }
         set({
-          [premium ? "premiumChips" : "chocoChips"]:
-            (premium ? state.premiumChips : state.chocoChips) - 1,
+          [premium ? "premiumChips" : "chocoChips"]: available - count,
           ovens: state.ovens.map((item) =>
-            item.ovenId === oven.id ? { ...item, level: item.level + 1 } : item,
+            copies[item.ovenId] ? { ...item, level: item.level + copies[item.ovenId] } : item,
           ),
-          totalDraws: draws,
-          drawXp: state.drawXp + 1,
-          drawLevel: 1 + Math.floor((state.drawXp + 1) / 20),
+          totalDraws: state.totalDraws + count,
+          achievements: earnedAchievements(state),
+          drawXp: state.drawXp + count,
+          drawLevel: 1 + Math.floor((state.drawXp + count) / 20),
           nextDrawBoost: "none",
         } as Partial<Game>);
-        return oven;
+        return drawn;
       },
       equipOven: (id) => {
         if (!get().ovens.find((oven) => oven.ovenId === id && oven.level > 0))
@@ -669,6 +685,7 @@ export const useGameStore = create<Game>()(
           prepareDrawBoost,
           rebirth,
           draw,
+          drawMany,
           equipOven,
           upgradeOven,
           fuseOven,

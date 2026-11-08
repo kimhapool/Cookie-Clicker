@@ -12,6 +12,7 @@ export function productionNumber(value: number, language: NumberLanguage = "ko")
 
 export function compactNumber(value: number, language: NumberLanguage = "ko") {
   const absolute = Math.abs(value);
+  if (absolute >= 1e21) return value.toLocaleString(locales[language], { notation: 'scientific', maximumFractionDigits: 2 });
   const eastAsian = language === "ko" || language === "ja" || language === "zh";
   const units: [number, string][] = eastAsian
     ? language === "ja"
@@ -23,5 +24,5 @@ export function compactNumber(value: number, language: NumberLanguage = "ko") {
   const unit = units.find(([threshold]) => absolute >= threshold);
   if (!unit) return Math.floor(value).toLocaleString(locales[language]);
   const shown = value / unit[0];
-  return `${shown >= 100 ? shown.toFixed(0) : shown.toFixed(1).replace(/\.0$/, "")}${unit[1]}`;
+  return `${shown.toLocaleString(locales[language], { maximumFractionDigits: Math.abs(shown) >= 100 ? 0 : 1 })}${unit[1]}`;
 }
